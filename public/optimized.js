@@ -394,7 +394,8 @@ function renderControls() {
   const isStudy = state.session?.stage.type === "study";
   const isDone = state.session?.complete;
 
-  answerField.hidden = Boolean(isStudy);
+  answerField.toggleAttribute("hidden", Boolean(isStudy));
+  answerField.setAttribute("aria-hidden", isStudy ? "true" : "false");
   answerForm.classList.toggle("is-study-action", Boolean(isStudy));
   guessInput.disabled = !state.session || isStudy || Boolean(isDone) || state.loading;
   answerSubmitButton.textContent = isStudy ? "Begin Recall" : "Submit Word";

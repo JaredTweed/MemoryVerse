@@ -1,9 +1,9 @@
 import {
-  createPassage,
   createSession,
   getPrompt,
   submitWord,
 } from "./memorize-core.js";
+import { parsePassageHtml } from "./passage-utils.js";
 
 const referenceInput = document.querySelector("#reference-input");
 const translationSelect = document.querySelector("#translation-select");
@@ -18,6 +18,7 @@ const hiddenCountValue = document.querySelector("#hidden-count");
 const promptValue = document.querySelector("#prompt-count");
 const totalWordsValue = document.querySelector("#total-words");
 const themeButtons = document.querySelectorAll("[data-theme-value]");
+let promptScrollFrame = 0;
 
 const state = {
   loading: false,
@@ -93,11 +94,7 @@ async function loadPassage() {
       throw new Error(payload.error || "Unable to load that passage.");
     }
 
-    const parsedPassage = parsePassageHtml(
-      payload.html,
-      payload.requestedReference,
-      payload.translation,
-    );
+    const parsedPassage = parsePassageHtml(payload.html, payload.requestedReference, payload.translation);
 
     state.passage = parsedPassage;
     state.session = createSession(parsedPassage);
@@ -115,114 +112,6 @@ async function loadPassage() {
   }
 }
 
-function parsePassageHtml(html, requestedReference, translation) {
-  const parser = new DOMParser();
-  const documentNode = parser.parseFromString(html, "text/html");
-  const passageRoot =
-    documentNode.querySelector("#bibletext section") ||
-    documentNode.querySelector("#bibletext") ||
-    documentNode.body;
-  const heading =
-    documentNode.querySelector(".bk_ch_vs_header")?.textContent?.trim() ||
-    `${requestedReference}, ${translation}`;
-  const referenceLabel = stripTrailingTranslation(heading, translation);
-  const verses = extractVerses(passageRoot);
-
-  if (!verses.length) {
-    throw new Error("No verse text was found for that reference.");
-  }
-
-  return createPassage({
-    heading,
-    referenceLabel,
-    translation,
-    verses,
-  });
-}
-
-function extractVerses(root) {
-  const verses = [];
-  let currentVerse = null;
-
-  function startVerse(verseNumber) {
-    if (currentVerse && currentVerse.text.trim()) {
-      verses.push(cleanVerse(currentVerse));
-    }
-
-    currentVerse = {
-      number: verseNumber,
-      text: "",
-    };
-  }
-
-  function walk(node) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      if (currentVerse) {
-        currentVerse.text += node.textContent || "";
-      }
-      return;
-    }
-
-    if (node.nodeType !== Node.ELEMENT_NODE) {
-      return;
-    }
-
-    if (
-      node.matches("h1, h2, h3, h4, h5, h6, sup") ||
-      node.classList.contains("tn") ||
-      node.classList.contains("a-tn")
-    ) {
-      return;
-    }
-
-    if (node.classList.contains("vn")) {
-      const verseNumber = node.textContent?.trim();
-
-      if (verseNumber) {
-        startVerse(verseNumber);
-      }
-
-      return;
-    }
-
-    for (const childNode of node.childNodes) {
-      walk(childNode);
-    }
-
-    if (currentVerse && (node.tagName === "P" || node.tagName === "BR")) {
-      currentVerse.text += " ";
-    }
-  }
-
-  walk(root);
-
-  if (currentVerse && currentVerse.text.trim()) {
-    verses.push(cleanVerse(currentVerse));
-  }
-
-  return verses.filter((verse) => verse.text.length > 0);
-}
-
-function cleanVerse(verse) {
-  return {
-    number: verse.number,
-    text: verse.text
-      .replace(/\s+/g, " ")
-      .replace(/\s+([,.;:!?])/g, "$1")
-      .replace(/([([{])\s+/g, "$1")
-      .trim(),
-  };
-}
-
-function stripTrailingTranslation(heading, translation) {
-  const suffix = `, ${translation}`;
-  if (heading.endsWith(suffix)) {
-    return heading.slice(0, -suffix.length);
-  }
-
-  return heading;
-}
-
 function render() {
   renderThemeButtons();
   renderTitle();
@@ -230,6 +119,7 @@ function render() {
   renderPassage();
   renderStats();
   renderControls();
+  syncPromptVisibility();
 }
 
 function renderTitle() {
@@ -380,6 +270,24 @@ function renderControls() {
   restartButton.disabled = !state.passage || state.loading;
 }
 
+function syncPromptVisibility() {
+  cancelAnimationFrame(promptScrollFrame);
+
+  promptScrollFrame = requestAnimationFrame(() => {
+    const currentPrompt = passageCard.querySelector(".is-current");
+
+    if (!currentPrompt) {
+      return;
+    }
+
+    currentPrompt.scrollIntoView({
+      block: "center",
+      inline: "nearest",
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+  });
+}
+
 function renderThemeButtons() {
   for (const button of themeButtons) {
     const isActive = button.dataset.themeValue === state.theme;
@@ -399,4 +307,8 @@ function getInitialTheme() {
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

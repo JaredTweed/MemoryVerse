@@ -85,6 +85,28 @@ button {
   padding: 1.25rem 0 2rem;
 }
 
+.nav-drawer {
+  width: min(360px, 100%);
+  margin-bottom: 1rem;
+  padding: 1rem 1rem 1.05rem;
+}
+
+.drawer-header {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.drawer-title {
+  font-size: clamp(1.4rem, 2vw, 2rem);
+}
+
+.drawer-copy {
+  margin: 0.85rem 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+  max-width: 34ch;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(290px, 340px) minmax(0, 1fr);
@@ -160,6 +182,27 @@ h2 {
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.mode-nav {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.mode-nav a {
+  color: var(--ink);
+  text-decoration: none;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-strong) 84%, transparent 16%);
+}
+
+.mode-nav a[aria-current="page"] {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 26%, transparent 74%);
 }
 
 .theme-switch {
@@ -317,6 +360,12 @@ h2 {
   gap: 1rem;
 }
 
+.practice-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
 .passage-card {
   min-height: 250px;
   padding: clamp(1.2rem, 3vw, 2rem);
@@ -358,6 +407,10 @@ h2 {
   animation: settle 180ms ease;
 }
 
+.word-cleared {
+  color: var(--success);
+}
+
 .word-gap {
   display: inline-block;
   width: calc(var(--gap-width) * 0.66ch);
@@ -369,6 +422,15 @@ h2 {
   border-radius: 0.2rem;
   background:
     linear-gradient(180deg, transparent 58%, color-mix(in srgb, var(--gap) 30%, transparent 70%) 58%);
+}
+
+.word-gap.has-cue {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.78em;
+  letter-spacing: 0.06em;
 }
 
 .word-gap.is-current {
@@ -389,6 +451,129 @@ h2 {
 
 .answer-field {
   margin: 0;
+}
+
+.chunk-list-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.chunk-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.chunk-card {
+  padding: 0.9rem 1rem;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-strong) 90%, transparent 10%);
+}
+
+.chunk-card.is-active {
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent 72%);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 14%, transparent 86%);
+}
+
+.chunk-card.is-complete {
+  background: color-mix(in srgb, var(--success) 14%, var(--panel-strong) 86%);
+}
+
+.chunk-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.chunk-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.chunk-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.4rem;
+  min-height: 2rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.study-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.chunk-study-text {
+  margin: 0;
+  font-size: clamp(1.55rem, 2.3vw, 2rem);
+  line-height: 1.8;
+}
+
+.research-footer {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem 1.1rem;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--panel-strong) 92%, transparent 8%);
+  border: 1px solid var(--line);
+}
+
+.research-footer p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+@media (min-width: 901px) {
+  .layout {
+    align-items: stretch;
+  }
+
+  .controls-panel,
+  .practice-panel {
+    min-height: 0;
+    height: min(48rem, calc(100svh - 11rem));
+    overflow: hidden;
+  }
+
+  .controls-panel {
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+
+  .practice-panel {
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  }
+
+  .chunk-list-section {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .chunk-list,
+  .passage-card {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .chunk-list {
+    padding-right: 0.3rem;
+  }
+
+  .passage-card {
+    height: 100%;
+    scroll-behavior: smooth;
+    scroll-padding-block: 40%;
+  }
 }
 
 @keyframes rise {
@@ -420,8 +605,8 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .hero {
-    flex-direction: column;
+  .nav-drawer {
+    width: 100%;
   }
 
   .practice-header {
@@ -437,7 +622,8 @@ h2 {
 
   .hero,
   .controls-panel,
-  .practice-panel {
+  .practice-panel,
+  .nav-drawer {
     border-radius: 24px;
     padding: 1rem;
   }

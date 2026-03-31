@@ -271,7 +271,7 @@ function renderChunkText(container, segments, promptPosition, cueStyle) {
       continue;
     }
 
-    const cue = buildCue(segment.text, cueStyle, wordCursor === promptPosition);
+    const cue = buildCue(segment.text, cueStyle, wordCursor === promptPosition, wordCursor === 0);
     container.appendChild(cue);
     wordCursor += 1;
   }
@@ -314,13 +314,13 @@ function renderPassageText(container, passage, promptPosition, cueStyle) {
       continue;
     }
 
-    const cue = buildCue(segment.text, cueStyle, wordCursor === promptPosition);
+    const cue = buildCue(segment.text, cueStyle, wordCursor === promptPosition, wordCursor === 0);
     container.appendChild(cue);
     wordCursor += 1;
   }
 }
 
-function buildCue(wordText, cueStyle, isCurrent) {
+function buildCue(wordText, cueStyle, isCurrent, isLeadWord) {
   const cue = document.createElement("span");
   cue.className = "word-gap";
   cue.style.setProperty("--gap-width", String(Math.max(wordText.length, 3)));
@@ -332,6 +332,9 @@ function buildCue(wordText, cueStyle, isCurrent) {
   if (cueStyle === "first-letter") {
     cue.classList.add("has-cue");
     cue.textContent = `${wordText[0]}${".".repeat(Math.max(wordText.length - 1, 1))}`;
+  } else if (cueStyle === "blank" && isLeadWord) {
+    cue.classList.add("has-cue");
+    cue.textContent = wordText[0];
   }
 
   return cue;

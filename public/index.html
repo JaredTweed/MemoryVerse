@@ -68,7 +68,6 @@
               <h2 id="passage-title">Load a passage to begin.</h2>
             </div>
             <div class="practice-actions">
-              <button type="button" id="continue-button" class="ghost-button">Begin Recall</button>
               <button type="button" id="restart-button" class="ghost-button">Restart Session</button>
             </div>
           </div>
@@ -85,7 +84,7 @@
           </article>
 
           <form id="answer-form" class="answer-row">
-            <div class="field answer-field">
+            <div id="answer-field" class="field answer-field">
               <label for="guess-input">Next word</label>
               <input
                 id="guess-input"
@@ -96,7 +95,7 @@
                 disabled
               >
             </div>
-            <button type="submit" class="primary-button">Submit Word</button>
+            <button type="submit" id="answer-submit-button" class="primary-button">Submit Word</button>
           </form>
         </section>
       </main>

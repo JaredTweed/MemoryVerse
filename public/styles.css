@@ -367,6 +367,10 @@ h2 {
   align-items: end;
 }
 
+.answer-row.is-study-action {
+  grid-template-columns: 1fr;
+}
+
 .answer-field {
   margin: 0;
 }

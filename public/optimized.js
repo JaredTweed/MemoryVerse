@@ -12,9 +12,10 @@ const referenceInput = document.querySelector("#reference-input");
 const translationSelect = document.querySelector("#translation-select");
 const passageForm = document.querySelector("#passage-form");
 const answerForm = document.querySelector("#answer-form");
+const answerField = document.querySelector("#answer-field");
+const answerSubmitButton = document.querySelector("#answer-submit-button");
 const guessInput = document.querySelector("#guess-input");
 const restartButton = document.querySelector("#restart-button");
-const continueButton = document.querySelector("#continue-button");
 const passageTitle = document.querySelector("#passage-title");
 const statusMessage = document.querySelector("#status-message");
 const practiceCard = document.querySelector("#practice-card");
@@ -42,7 +43,12 @@ passageForm.addEventListener("submit", async (event) => {
 answerForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
-  if (!state.session || state.loading || state.session.stage.type === "study") {
+  if (!state.session || state.loading) {
+    return;
+  }
+
+  if (state.session.stage.type === "study") {
+    beginRecall();
     return;
   }
 
@@ -51,14 +57,28 @@ answerForm.addEventListener("submit", (event) => {
   render();
 });
 
-continueButton.addEventListener("click", () => {
-  if (!state.session || state.loading) {
+document.addEventListener("keydown", (event) => {
+  if (
+    event.defaultPrevented ||
+    event.key !== "Enter" ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    !state.session ||
+    state.loading ||
+    state.session.stage.type !== "study"
+  ) {
     return;
   }
 
-  state.session = beginOptimizedStage(state.session);
-  render();
-  guessInput.focus();
+  const target = event.target;
+  if (target instanceof HTMLElement && (passageForm.contains(target) || answerForm.contains(target))) {
+    return;
+  }
+
+  event.preventDefault();
+  beginRecall();
 });
 
 restartButton.addEventListener("click", () => {
@@ -374,8 +394,11 @@ function renderControls() {
   const isStudy = state.session?.stage.type === "study";
   const isDone = state.session?.complete;
 
-  continueButton.disabled = !state.session || !isStudy || state.loading;
+  answerField.hidden = Boolean(isStudy);
+  answerForm.classList.toggle("is-study-action", Boolean(isStudy));
   guessInput.disabled = !state.session || isStudy || Boolean(isDone) || state.loading;
+  answerSubmitButton.textContent = isStudy ? "Begin Recall" : "Submit Word";
+  answerSubmitButton.disabled = !state.session || Boolean(isDone) || state.loading;
   guessInput.placeholder = isStudy
     ? "Click Begin Recall"
     : isDone
@@ -400,6 +423,7 @@ function syncWorkspaceVisibility() {
         top: 0,
         behavior: prefersReducedMotion() ? "auto" : "smooth",
       });
+      answerSubmitButton.focus({ preventScroll: true });
     }
 
     const activeChunk = chunkList.querySelector(".is-active");
@@ -417,6 +441,16 @@ function syncWorkspaceVisibility() {
 
 function applyTheme() {
   document.documentElement.dataset.theme = "dark";
+}
+
+function beginRecall() {
+  if (!state.session || state.loading || state.session.stage.type !== "study") {
+    return;
+  }
+
+  state.session = beginOptimizedStage(state.session);
+  render();
+  guessInput.focus();
 }
 
 function escapeHtml(value) {

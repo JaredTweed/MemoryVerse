@@ -176,16 +176,16 @@ function renderStatus() {
   const prompt = getOptimizedPrompt(state.session);
   switch (state.session.feedback.type) {
     case "ready-to-study":
-      statusMessage.textContent = "Start with the first chunk in full view, then switch into guided recall.";
+      statusMessage.textContent = "Study this section, then press Begin Recall.";
       break;
     case "chunk-recall-start":
-      statusMessage.textContent = "Type the chunk in order. Correct words stay visible so the remaining load stays low.";
+      statusMessage.textContent = getRecallProgressText(state.session, prompt);
       break;
     case "correct-word":
-      statusMessage.textContent = `Correct. Continue with word ${prompt.promptPosition + 1} of ${prompt.totalPrompts}.`;
+      statusMessage.textContent = getRecallProgressText(state.session, prompt);
       break;
     case "mistake":
-      statusMessage.textContent = `Incorrect. "${state.session.feedback.revealedWord}" is shown again, and cues were restored for the retry.`;
+      statusMessage.textContent = `The correct word was "${state.session.feedback.revealedWord}".`;
       break;
     case "chunk-cleared":
       statusMessage.textContent = `${state.session.feedback.chunkLabel} cleared. It will return later in the session.`;
@@ -200,13 +200,13 @@ function renderStatus() {
       statusMessage.textContent = "Complete. Session finished.";
       break;
     case "empty-answer":
-      statusMessage.textContent = "Type the next word before submitting.";
+      statusMessage.textContent = "Make a guess before getting help.";
       break;
     default:
       if (prompt?.type === "study") {
-        statusMessage.textContent = "Study the current section once, then begin recall.";
+        statusMessage.textContent = "Study this section, then press Begin Recall.";
       } else if (prompt) {
-        statusMessage.textContent = `Type word ${prompt.promptPosition + 1} of ${prompt.totalPrompts}.`;
+        statusMessage.textContent = getRecallProgressText(state.session, prompt);
       } else {
         statusMessage.textContent = "The passage is ready.";
       }
@@ -405,7 +405,7 @@ function renderControls() {
   answerField.setAttribute("aria-hidden", isStudy ? "true" : "false");
   answerForm.classList.toggle("is-study-action", Boolean(isStudy));
   guessInput.disabled = !state.session || isStudy || Boolean(isDone) || state.loading;
-  answerSubmitButton.textContent = isStudy ? "Begin Recall" : "Submit Word";
+  answerSubmitButton.textContent = isStudy ? "Begin Recall" : "Help";
   answerSubmitButton.disabled = !state.session || Boolean(isDone) || state.loading;
   guessInput.placeholder = isStudy
     ? "Click Begin Recall"
@@ -478,6 +478,14 @@ function submitAnswer() {
   if (state.session && !state.session.complete && state.session.stage.type !== "study") {
     guessInput.focus({ preventScroll: true });
   }
+}
+
+function getRecallProgressText(session, prompt) {
+  if (!prompt || prompt.type === "study") {
+    return "";
+  }
+
+  return `${session.promptPosition}/${prompt.totalPrompts}`;
 }
 
 function escapeHtml(value) {

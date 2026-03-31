@@ -22,7 +22,6 @@ const statusMessage = document.querySelector("#status-message");
 const practiceCard = document.querySelector("#practice-card");
 const chunkList = document.querySelector("#chunk-list");
 const progressValue = document.querySelector("#progress-value");
-const promptValue = document.querySelector("#prompt-value");
 const supportValue = document.querySelector("#support-value");
 let workspaceScrollFrame = 0;
 
@@ -374,15 +373,12 @@ function renderChunkList() {
 function renderStats() {
   if (!state.session) {
     progressValue.textContent = "--";
-    promptValue.textContent = "--";
     supportValue.textContent = "--";
     return;
   }
 
   const stats = getOptimizedStats(state.session);
   progressValue.textContent = `${stats.completedChunks} / ${stats.totalChunks}`;
-  promptValue.textContent =
-    stats.totalPrompts > 0 ? `${stats.promptPosition} / ${stats.totalPrompts}` : "--";
 
   if (state.session.stage.type === "study") {
     supportValue.textContent = "Study";

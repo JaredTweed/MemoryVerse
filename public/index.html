@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MemoryVerse</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero panel">
+        <div class="hero-copy">
+          <p class="eyebrow">MemoryVerse</p>
+          <h1>Learn a passage by rebuilding it one missing word at a time.</h1>
+          <p class="hero-text">
+            Choose a verse or verse range, pick a translation, and each cleared round hides one
+            more random word until you type the whole passage from memory.
+          </p>
+        </div>
+        <div class="theme-switch" role="group" aria-label="Color theme">
+          <button type="button" class="theme-button" data-theme-value="light">Light</button>
+          <button type="button" class="theme-button" data-theme-value="dark">Dark</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="panel controls-panel">
+          <form id="passage-form" class="stack">
+            <div class="field">
+              <label for="reference-input">Verse or range</label>
+              <input
+                id="reference-input"
+                name="reference"
+                type="text"
+                value="John 3:16-17"
+                placeholder="Psalm 23:1-4"
+                autocomplete="off"
+              >
+            </div>
+
+            <div class="field">
+              <label for="translation-select">Translation</label>
+              <select id="translation-select" name="translation">
+                <option value="NLT">New Living Translation (NLT)</option>
+                <option value="KJV">King James Version (KJV)</option>
+                <option value="NLTUK">New Living Translation UK (NLTUK)</option>
+                <option value="NTV">Nueva Traduccion Viviente (NTV)</option>
+              </select>
+            </div>
+
+            <button type="submit" class="primary-button">Load Passage</button>
+          </form>
+
+          <div class="rule-block">
+            <p class="rule-title">How it works</p>
+            <p>One random word hides to start. Clear the hidden words in order to add another.</p>
+            <p>If you miss a word, that word reappears and you restart the round on the rest.</p>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat-card">
+              <span class="stat-label">Words hidden</span>
+              <strong id="hidden-count">--</strong>
+            </article>
+            <article class="stat-card">
+              <span class="stat-label">Current prompt</span>
+              <strong id="prompt-count">--</strong>
+            </article>
+            <article class="stat-card">
+              <span class="stat-label">Total words</span>
+              <strong id="total-words">--</strong>
+            </article>
+          </div>
+        </aside>
+
+        <section class="panel practice-panel">
+          <div class="practice-header">
+            <div>
+              <p class="eyebrow">Practice</p>
+              <h2 id="passage-title">Choose a verse and start drilling it from memory.</h2>
+            </div>
+            <button type="button" id="restart-button" class="ghost-button">Restart Session</button>
+          </div>
+
+          <p id="status-message" class="status-message">
+            Pick a reference, choose a translation, and the app will hide one random word to start
+            the round.
+          </p>
+
+          <article id="passage-card" class="passage-card is-empty" aria-live="polite">
+            <div class="empty-state">
+              <p class="empty-kicker">MemoryVerse</p>
+              <p>Load a verse or verse range to start hiding words one round at a time.</p>
+            </div>
+          </article>
+
+          <form id="answer-form" class="answer-row">
+            <div class="field answer-field">
+              <label for="guess-input">Missing word</label>
+              <input
+                id="guess-input"
+                name="guess"
+                type="text"
+                placeholder="Load a passage first"
+                autocomplete="off"
+                disabled
+              >
+            </div>
+            <button type="submit" class="primary-button">Submit Word</button>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

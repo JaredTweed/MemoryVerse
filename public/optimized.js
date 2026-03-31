@@ -12,7 +12,6 @@ import {
 const referenceInput = document.querySelector("#reference-input");
 const translationSelect = document.querySelector("#translation-select");
 const passageForm = document.querySelector("#passage-form");
-const autoSubmitToggle = document.querySelector("#auto-submit-toggle");
 const answerForm = document.querySelector("#answer-form");
 const answerField = document.querySelector("#answer-field");
 const answerSubmitButton = document.querySelector("#answer-submit-button");
@@ -25,7 +24,6 @@ const chunkList = document.querySelector("#chunk-list");
 const progressValue = document.querySelector("#progress-value");
 const promptValue = document.querySelector("#prompt-value");
 const supportValue = document.querySelector("#support-value");
-const AUTO_SUBMIT_STORAGE_KEY = "memoryverse:auto-submit-correct-words";
 let workspaceScrollFrame = 0;
 
 const state = {
@@ -33,7 +31,6 @@ const state = {
   passage: null,
   session: null,
   notice: "",
-  autoSubmitCorrectWords: loadAutoSubmitPreference(),
 };
 
 applyTheme();
@@ -52,7 +49,6 @@ answerForm.addEventListener("submit", (event) => {
 guessInput.addEventListener("input", (event) => {
   if (
     event.isComposing ||
-    !state.autoSubmitCorrectWords ||
     !state.session ||
     state.loading ||
     state.session.stage.type === "study"
@@ -94,12 +90,6 @@ document.addEventListener("keydown", (event) => {
 
   event.preventDefault();
   beginRecall();
-});
-
-autoSubmitToggle.addEventListener("change", () => {
-  state.autoSubmitCorrectWords = autoSubmitToggle.checked;
-  persistAutoSubmitPreference(state.autoSubmitCorrectWords);
-  render();
 });
 
 restartButton.addEventListener("click", () => {
@@ -415,7 +405,6 @@ function renderControls() {
   const isStudy = state.session?.stage.type === "study";
   const isDone = state.session?.complete;
 
-  autoSubmitToggle.checked = state.autoSubmitCorrectWords;
   answerField.toggleAttribute("hidden", Boolean(isStudy));
   answerField.setAttribute("aria-hidden", isStudy ? "true" : "false");
   answerForm.classList.toggle("is-study-action", Boolean(isStudy));
@@ -492,27 +481,6 @@ function submitAnswer() {
 
   if (state.session && !state.session.complete && state.session.stage.type !== "study") {
     guessInput.focus({ preventScroll: true });
-  }
-}
-
-function loadAutoSubmitPreference() {
-  try {
-    const storedValue = window.localStorage.getItem(AUTO_SUBMIT_STORAGE_KEY);
-    if (storedValue === null) {
-      return true;
-    }
-
-    return storedValue === "true";
-  } catch {
-    return true;
-  }
-}
-
-function persistAutoSubmitPreference(value) {
-  try {
-    window.localStorage.setItem(AUTO_SUBMIT_STORAGE_KEY, String(value));
-  } catch {
-    // Ignore persistence failures and keep the in-memory preference.
   }
 }
 

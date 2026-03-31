@@ -182,44 +182,6 @@ h2 {
   gap: 1rem;
 }
 
-.setting-card {
-  padding: 0.95rem 1rem;
-  border-radius: 20px;
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--panel-strong) 92%, transparent 8%);
-}
-
-.toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  cursor: pointer;
-}
-
-.toggle-copy {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.toggle-copy strong {
-  font-size: 0.98rem;
-}
-
-.toggle-copy span {
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.45;
-}
-
-.toggle-row input[type="checkbox"] {
-  width: 1.2rem;
-  height: 1.2rem;
-  margin: 0;
-  accent-color: var(--accent);
-  flex: 0 0 auto;
-}
-
 .field {
   display: grid;
   gap: 0.45rem;
@@ -574,9 +536,5 @@ h2 {
   .stats-grid,
   .answer-row {
     grid-template-columns: 1fr;
-  }
-
-  .toggle-row {
-    align-items: flex-start;
   }
 }

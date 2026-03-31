@@ -35,6 +35,21 @@ export function createOptimizedSession(passage) {
   };
 }
 
+export function createOptimizedFinalTestSession(passage) {
+  const session = createOptimizedSession(passage);
+
+  return {
+    ...session,
+    stage: {
+      type: "final-recall",
+      cueStyle: "blank",
+    },
+    finalRound: 1,
+    promptPosition: 0,
+    feedback: { type: "final-test-start" },
+  };
+}
+
 export function beginOptimizedStage(session) {
   if (session.complete || session.stage.type !== "study") {
     return session;

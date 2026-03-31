@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createPassage } from "../public/memorize-core.js";
 import {
   beginOptimizedStage,
+  createOptimizedFinalTestSession,
   createOptimizedPassage,
   createOptimizedSession,
   getOptimizedPrompt,
@@ -125,4 +126,15 @@ test("after chunk mastery, the session moves into final consolidation and comple
   session = clearCurrentStage(session);
   assert.equal(session.complete, true);
   assert.equal(session.feedback.type, "completed");
+});
+
+test("skip-to-final session starts in blank-only final recall", () => {
+  const session = createOptimizedFinalTestSession(createOptimizedPassage(buildPassage()));
+  const prompt = getOptimizedPrompt(session);
+
+  assert.equal(session.complete, false);
+  assert.equal(session.finalRound, 1);
+  assert.equal(prompt.type, "final-recall");
+  assert.equal(prompt.cueStyle, "blank");
+  assert.equal(prompt.word.text, "Grace");
 });

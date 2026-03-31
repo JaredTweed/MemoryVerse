@@ -2,6 +2,7 @@ import { parsePassageHtml } from "./passage-utils.js";
 import { normalizeWord } from "./memorize-core.js";
 import {
   beginOptimizedStage,
+  createOptimizedFinalTestSession,
   createOptimizedPassage,
   createOptimizedSession,
   getOptimizedPrompt,
@@ -12,6 +13,7 @@ import {
 const referenceInput = document.querySelector("#reference-input");
 const translationSelect = document.querySelector("#translation-select");
 const passageForm = document.querySelector("#passage-form");
+const skipFinalButton = document.querySelector("#skip-final-button");
 const answerForm = document.querySelector("#answer-form");
 const answerField = document.querySelector("#answer-field");
 const answerSubmitButton = document.querySelector("#answer-submit-button");
@@ -42,7 +44,8 @@ window.addEventListener("resize", syncPracticeHeaderLayout);
 
 passageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  await loadPassage();
+  const startInFinalTest = event.submitter?.id === "skip-final-button";
+  await loadPassage({ startInFinalTest });
 });
 
 answerForm.addEventListener("submit", (event) => {
@@ -105,7 +108,7 @@ restartButton.addEventListener("click", () => {
   render();
 });
 
-async function loadPassage() {
+async function loadPassage({ startInFinalTest = false } = {}) {
   const reference = referenceInput.value.trim();
   const translation = translationSelect.value;
 
@@ -134,7 +137,10 @@ async function loadPassage() {
 
     const parsedPassage = parsePassageHtml(payload.html, payload.requestedReference, payload.translation);
     state.passage = parsedPassage;
-    state.session = createOptimizedSession(createOptimizedPassage(parsedPassage));
+    const optimizedPassage = createOptimizedPassage(parsedPassage);
+    state.session = startInFinalTest
+      ? createOptimizedFinalTestSession(optimizedPassage)
+      : createOptimizedSession(optimizedPassage);
     state.notice = "";
     render();
   } catch (error) {
@@ -145,6 +151,10 @@ async function loadPassage() {
   } finally {
     state.loading = false;
     render();
+  }
+
+  if (startInFinalTest && state.session && !state.loading) {
+    guessInput.focus({ preventScroll: true });
   }
 }
 
@@ -401,6 +411,7 @@ function renderControls() {
     : isDone
       ? "Session complete"
       : "Type the next word in order";
+  skipFinalButton.disabled = state.loading;
   restartButton.disabled = !state.passage || state.loading;
 }
 

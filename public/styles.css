@@ -276,12 +276,20 @@ h2 {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.practice-heading {
+  flex: 1 1 18rem;
+  min-width: 0;
 }
 
 .practice-actions {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.6rem;
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .passage-card {
@@ -516,8 +524,13 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .practice-header {
-    flex-direction: column;
+  .practice-actions.is-stacked {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .practice-actions.is-stacked .ghost-button {
+    width: 100%;
   }
 }
 

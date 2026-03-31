@@ -17,12 +17,15 @@ const answerField = document.querySelector("#answer-field");
 const answerSubmitButton = document.querySelector("#answer-submit-button");
 const guessInput = document.querySelector("#guess-input");
 const restartButton = document.querySelector("#restart-button");
+const practiceHeading = document.querySelector(".practice-heading");
+const practiceActions = document.querySelector(".practice-actions");
 const passageTitle = document.querySelector("#passage-title");
 const statusMessage = document.querySelector("#status-message");
 const practiceCard = document.querySelector("#practice-card");
 const chunkList = document.querySelector("#chunk-list");
 const progressValue = document.querySelector("#progress-value");
 const supportValue = document.querySelector("#support-value");
+let headerLayoutFrame = 0;
 let workspaceScrollFrame = 0;
 
 const state = {
@@ -34,6 +37,8 @@ const state = {
 
 applyTheme();
 render();
+
+window.addEventListener("resize", syncPracticeHeaderLayout);
 
 passageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -150,6 +155,7 @@ function render() {
   renderChunkList();
   renderStats();
   renderControls();
+  syncPracticeHeaderLayout();
   syncWorkspaceVisibility();
 }
 
@@ -427,6 +433,19 @@ function syncWorkspaceVisibility() {
       inline: "nearest",
       behavior: prefersReducedMotion() ? "auto" : "smooth",
     });
+  });
+}
+
+function syncPracticeHeaderLayout() {
+  cancelAnimationFrame(headerLayoutFrame);
+
+  headerLayoutFrame = requestAnimationFrame(() => {
+    const isNarrowViewport = window.matchMedia("(max-width: 900px)").matches;
+    const headingBottom = practiceHeading.getBoundingClientRect().bottom;
+    const actionsTop = practiceActions.getBoundingClientRect().top;
+    const isStacked = isNarrowViewport && actionsTop > headingBottom;
+
+    practiceActions.classList.toggle("is-stacked", isStacked);
   });
 }
 

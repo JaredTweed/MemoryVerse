@@ -22,7 +22,6 @@ const chunkList = document.querySelector("#chunk-list");
 const progressValue = document.querySelector("#progress-value");
 const promptValue = document.querySelector("#prompt-value");
 const supportValue = document.querySelector("#support-value");
-const themeButtons = document.querySelectorAll("[data-theme-value]");
 let workspaceScrollFrame = 0;
 
 const state = {
@@ -30,10 +29,9 @@ const state = {
   passage: null,
   session: null,
   notice: "",
-  theme: getInitialTheme(),
 };
 
-applyTheme(state.theme);
+applyTheme();
 render();
 
 passageForm.addEventListener("submit", async (event) => {
@@ -71,15 +69,6 @@ restartButton.addEventListener("click", () => {
   state.session = createOptimizedSession(createOptimizedPassage(state.passage));
   render();
 });
-
-for (const button of themeButtons) {
-  button.addEventListener("click", () => {
-    state.theme = button.dataset.themeValue || "light";
-    localStorage.setItem("memoryverse-theme", state.theme);
-    applyTheme(state.theme);
-    renderThemeButtons();
-  });
-}
 
 async function loadPassage() {
   const reference = referenceInput.value.trim();
@@ -125,7 +114,6 @@ async function loadPassage() {
 }
 
 function render() {
-  renderThemeButtons();
   renderTitle();
   renderStatus();
   renderPractice();
@@ -432,25 +420,8 @@ function syncWorkspaceVisibility() {
   });
 }
 
-function renderThemeButtons() {
-  for (const button of themeButtons) {
-    const isActive = button.dataset.themeValue === state.theme;
-    button.dataset.active = isActive ? "true" : "false";
-    button.setAttribute("aria-pressed", isActive ? "true" : "false");
-  }
-}
-
-function getInitialTheme() {
-  const savedTheme = localStorage.getItem("memoryverse-theme");
-  if (savedTheme === "light" || savedTheme === "dark") {
-    return savedTheme;
-  }
-
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
+function applyTheme() {
+  document.documentElement.dataset.theme = "dark";
 }
 
 function escapeHtml(value) {

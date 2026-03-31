@@ -85,23 +85,17 @@ button {
   padding: 1.25rem 0 2rem;
 }
 
-.nav-drawer {
-  width: min(360px, 100%);
-  margin-bottom: 1rem;
-  padding: 1rem 1rem 1.05rem;
-}
-
-.drawer-header {
+.panel-intro {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.45rem;
 }
 
-.drawer-title {
+.panel-title {
   font-size: clamp(1.4rem, 2vw, 2rem);
 }
 
-.drawer-copy {
-  margin: 0.85rem 0 0;
+.panel-copy {
+  margin: 0;
   color: var(--muted);
   line-height: 1.55;
   max-width: 34ch;
@@ -134,20 +128,6 @@ button {
     radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 28%);
 }
 
-.hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.25rem;
-  padding: 1.5rem 1.5rem 1.35rem;
-  margin-bottom: 1.25rem;
-  animation: rise 500ms ease;
-}
-
-.hero-copy {
-  max-width: 720px;
-}
-
 .eyebrow,
 .empty-kicker,
 .rule-title,
@@ -176,45 +156,12 @@ h2 {
   font-size: clamp(1.6rem, 3vw, 2.5rem);
 }
 
-.hero-text,
 .status-message,
 .rule-block p {
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
 }
-
-.mode-nav {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 1rem;
-}
-
-.mode-nav a {
-  color: var(--ink);
-  text-decoration: none;
-  padding: 0.55rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--panel-strong) 84%, transparent 16%);
-}
-
-.mode-nav a[aria-current="page"] {
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 26%, transparent 74%);
-}
-
-.theme-switch {
-  display: inline-flex;
-  gap: 0.45rem;
-  padding: 0.45rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--panel-strong) 88%, transparent 12%);
-  border: 1px solid var(--line);
-}
-
-.theme-button,
 .ghost-button,
 .primary-button {
   border: 0;
@@ -224,18 +171,6 @@ h2 {
     background-color 180ms ease,
     color 180ms ease,
     box-shadow 180ms ease;
-}
-
-.theme-button {
-  padding: 0.7rem 1rem;
-  color: var(--muted);
-  background: transparent;
-}
-
-.theme-button[data-active="true"] {
-  color: white;
-  background: var(--accent);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
 }
 
 .controls-panel,
@@ -307,8 +242,7 @@ h2 {
 }
 
 .primary-button:hover,
-.ghost-button:hover,
-.theme-button:hover {
+.ghost-button:hover {
   transform: translateY(-1px);
 }
 
@@ -545,7 +479,7 @@ h2 {
   }
 
   .controls-panel {
-    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto minmax(0, 1fr);
   }
 
   .practice-panel {
@@ -605,10 +539,6 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .nav-drawer {
-    width: 100%;
-  }
-
   .practice-header {
     flex-direction: column;
   }
@@ -620,10 +550,8 @@ h2 {
     padding-top: 0.5rem;
   }
 
-  .hero,
   .controls-panel,
-  .practice-panel,
-  .nav-drawer {
+  .practice-panel {
     border-radius: 24px;
     padding: 1rem;
   }
@@ -631,10 +559,5 @@ h2 {
   .stats-grid,
   .answer-row {
     grid-template-columns: 1fr;
-  }
-
-  .theme-switch {
-    width: 100%;
-    justify-content: space-between;
   }
 }

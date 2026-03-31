@@ -125,7 +125,7 @@ function render() {
 
 function renderTitle() {
   if (!state.passage) {
-    passageTitle.textContent = "Research Mode teaches one chunk at a time, then consolidates the full passage.";
+    passageTitle.textContent = "Load a passage to begin.";
     return;
   }
 
@@ -139,9 +139,7 @@ function renderStatus() {
   }
 
   if (!state.session) {
-    statusMessage.textContent =
-      state.notice ||
-      "Load a passage to start the research-backed flow: chunking, cue fading, spaced revisit, and full-passage consolidation.";
+    statusMessage.textContent = state.notice || "Choose a verse or range to begin.";
     return;
   }
 
@@ -160,26 +158,23 @@ function renderStatus() {
       statusMessage.textContent = `Incorrect. "${state.session.feedback.revealedWord}" is shown again, and cues were restored for the retry.`;
       break;
     case "chunk-cleared":
-      statusMessage.textContent = `${state.session.feedback.chunkLabel} cleared. It will come back after a short gap for spaced relearning.`;
+      statusMessage.textContent = `${state.session.feedback.chunkLabel} cleared. It will return later in the session.`;
       break;
     case "chunk-mastered":
       statusMessage.textContent = `${state.session.feedback.chunkLabel} reached the mastery criterion.`;
       break;
     case "final-round-cleared":
-      statusMessage.textContent =
-        "Full passage cleared with cues. One last blank-only consolidation round remains.";
+      statusMessage.textContent = "Full passage cleared. One last round remains.";
       break;
     case "completed":
-      statusMessage.textContent =
-        "Complete. You finished chunk mastery and both full-passage consolidation rounds.";
+      statusMessage.textContent = "Complete. Session finished.";
       break;
     case "empty-answer":
       statusMessage.textContent = "Type the next word before submitting.";
       break;
     default:
       if (prompt?.type === "study") {
-        statusMessage.textContent =
-          "Study the current chunk once, then move into recall. New chunks are kept small to reduce cognitive load.";
+        statusMessage.textContent = "Study the current section once, then begin recall.";
       } else if (prompt) {
         statusMessage.textContent = `Type word ${prompt.promptPosition + 1} of ${prompt.totalPrompts}.`;
       } else {
@@ -196,8 +191,8 @@ function renderPractice() {
     practiceCard.classList.add("is-empty");
     practiceCard.innerHTML = `
       <div class="empty-state">
-        <p class="empty-kicker">Research Mode</p>
-        <p>Load a passage to practice with chunking, cue fading, spaced chunk review, and final consolidation.</p>
+        <p class="empty-kicker">MemoryVerse</p>
+        <p>Load a passage to begin.</p>
       </div>
     `;
     return;

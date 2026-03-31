@@ -11,12 +11,7 @@
       <main class="layout">
         <aside class="panel controls-panel">
           <section class="panel-intro">
-            <p class="eyebrow">MemoryVerse</p>
-            <h1 class="panel-title">Research Mode</h1>
-            <p class="panel-copy">
-              Chunked study, cue fading, short spaced revisits, and full-passage consolidation for
-              lower-friction memorization.
-            </p>
+            <h1 class="panel-title">MemoryVerse</h1>
           </section>
 
           <form id="passage-form" class="stack">
@@ -45,13 +40,6 @@
             <button type="submit" class="primary-button">Load Passage</button>
           </form>
 
-          <div class="rule-block">
-            <p class="rule-title">Why this mode</p>
-            <p>New material is introduced in small chunks to lower cognitive load.</p>
-            <p>Each chunk is recalled to a 3-success criterion with cues that fade as you improve.</p>
-            <p>Cleared chunks come back after short gaps, then the whole passage is consolidated.</p>
-          </div>
-
           <div class="stats-grid">
             <article class="stat-card">
               <span class="stat-label">Chunks mastered</span>
@@ -77,7 +65,7 @@
           <div class="practice-header">
             <div>
               <p class="eyebrow">Practice</p>
-              <h2 id="passage-title">Research Mode teaches one chunk at a time, then consolidates the full passage.</h2>
+              <h2 id="passage-title">Load a passage to begin.</h2>
             </div>
             <div class="practice-actions">
               <button type="button" id="continue-button" class="ghost-button">Begin Recall</button>
@@ -86,14 +74,13 @@
           </div>
 
           <p id="status-message" class="status-message">
-            Load a passage to start the research-backed flow: chunking, cue fading, spaced revisit,
-            and full-passage consolidation.
+            Choose a verse or range to begin.
           </p>
 
           <article id="practice-card" class="passage-card is-empty" aria-live="polite">
             <div class="empty-state">
-              <p class="empty-kicker">Research Mode</p>
-              <p>Load a passage to practice with chunking, cue fading, spaced chunk review, and final consolidation.</p>
+              <p class="empty-kicker">MemoryVerse</p>
+              <p>Load a passage to begin.</p>
             </div>
           </article>
 
@@ -111,11 +98,6 @@
             </div>
             <button type="submit" class="primary-button">Submit Word</button>
           </form>
-
-          <footer class="research-footer">
-            <p class="rule-title">Research used</p>
-            <p>Retrieval practice, feedback, spacing, criterion learning, cue fading, and learner-paced segmenting informed this mode.</p>
-          </footer>
         </section>
       </main>
     </div>

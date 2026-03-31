@@ -174,43 +174,23 @@ function renderStatus() {
   }
 
   const prompt = getOptimizedPrompt(state.session);
+  if (!prompt) {
+    statusMessage.textContent =
+      state.session.feedback.type === "completed" ? "Complete. Session finished." : "The passage is ready.";
+    return;
+  }
+
+  const statusPrefix = getStatusPrefix(state.session, prompt);
   switch (state.session.feedback.type) {
-    case "ready-to-study":
-      statusMessage.textContent = "Study this section, then press Begin Recall.";
-      break;
-    case "chunk-recall-start":
-      statusMessage.textContent = getRecallProgressText(state.session, prompt);
-      break;
-    case "correct-word":
-      statusMessage.textContent = getRecallProgressText(state.session, prompt);
-      break;
     case "mistake":
-      statusMessage.textContent = `The correct word was "${state.session.feedback.revealedWord}".`;
-      break;
-    case "chunk-cleared":
-      statusMessage.textContent = `${state.session.feedback.chunkLabel} cleared. It will return later in the session.`;
-      break;
-    case "chunk-mastered":
-      statusMessage.textContent = `${state.session.feedback.chunkLabel} reached the mastery criterion.`;
-      break;
-    case "final-round-cleared":
-      statusMessage.textContent = "Full passage cleared. One last round remains.";
-      break;
-    case "completed":
-      statusMessage.textContent = "Complete. Session finished.";
-      break;
+      statusMessage.textContent = `${statusPrefix}. The correct word was "${state.session.feedback.revealedWord}".`;
+      return;
     case "empty-answer":
-      statusMessage.textContent = "Make a guess before getting help.";
-      break;
+      statusMessage.textContent = `${statusPrefix}. Make a guess before getting help.`;
+      return;
     default:
-      if (prompt?.type === "study") {
-        statusMessage.textContent = "Study this section, then press Begin Recall.";
-      } else if (prompt) {
-        statusMessage.textContent = getRecallProgressText(state.session, prompt);
-      } else {
-        statusMessage.textContent = "The passage is ready.";
-      }
-      break;
+      statusMessage.textContent = `${statusPrefix}.`;
+      return;
   }
 }
 
@@ -483,12 +463,83 @@ function submitAnswer() {
   }
 }
 
-function getRecallProgressText(session, prompt) {
-  if (!prompt || prompt.type === "study") {
-    return "";
+function getStatusPrefix(session, prompt) {
+  const context = getStatusContext(session, prompt);
+  if (!context) {
+    return "The passage is ready";
   }
 
-  return `${session.promptPosition}/${prompt.totalPrompts}`;
+  let prefix = `${context.chunkReference}, Chunk ${context.chunkNumber}/${context.totalChunks}`;
+  if (context.wordNumber !== null && context.wordTotal !== null) {
+    prefix += `, Word ${context.wordNumber}/${context.wordTotal}`;
+  }
+
+  return prefix;
+}
+
+function getStatusContext(session, prompt) {
+  if (prompt.type === "study" || prompt.type === "chunk-recall") {
+    return createChunkStatusContext(
+      session,
+      prompt.chunkIndex,
+      prompt.chunk,
+      prompt.type === "study" ? null : prompt.promptPosition + 1,
+      prompt.type === "study" ? null : prompt.totalPrompts,
+    );
+  }
+
+  if (prompt.type !== "final-recall") {
+    return null;
+  }
+
+  let wordOffset = prompt.promptPosition;
+  for (let chunkIndex = 0; chunkIndex < session.chunks.length; chunkIndex += 1) {
+    const chunk = session.chunks[chunkIndex];
+    if (wordOffset < chunk.words.length) {
+      return createChunkStatusContext(
+        session,
+        chunkIndex,
+        chunk,
+        wordOffset + 1,
+        chunk.words.length,
+      );
+    }
+
+    wordOffset -= chunk.words.length;
+  }
+
+  const finalChunkIndex = Math.max(session.chunks.length - 1, 0);
+  const finalChunk = session.chunks[finalChunkIndex];
+  if (!finalChunk) {
+    return null;
+  }
+
+  return createChunkStatusContext(
+    session,
+    finalChunkIndex,
+    finalChunk,
+    finalChunk.words.length,
+    finalChunk.words.length,
+  );
+}
+
+function createChunkStatusContext(session, chunkIndex, chunk, wordNumber, wordTotal) {
+  return {
+    chunkReference: formatChunkReference(session.passage.referenceLabel, chunk),
+    chunkNumber: chunkIndex + 1,
+    totalChunks: session.chunks.length,
+    wordNumber,
+    wordTotal,
+  };
+}
+
+function formatChunkReference(referenceLabel, chunk) {
+  const chunkSuffix = chunk.label.replace(/^Verse\s+/u, "");
+  const chapterReference = referenceLabel.includes(":")
+    ? referenceLabel.slice(0, referenceLabel.indexOf(":"))
+    : referenceLabel;
+
+  return `${chapterReference}:${chunkSuffix}`;
 }
 
 function escapeHtml(value) {

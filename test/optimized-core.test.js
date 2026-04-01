@@ -8,6 +8,7 @@ import {
   createOptimizedPassage,
   createOptimizedSession,
   getOptimizedPrompt,
+  restartOptimizedFinalTest,
   submitOptimizedWord,
 } from "../public/optimized-core.js";
 
@@ -137,4 +138,18 @@ test("skip-to-final session starts in blank-only final recall", () => {
   assert.equal(prompt.type, "final-recall");
   assert.equal(prompt.cueStyle, "blank");
   assert.equal(prompt.word.text, "Grace");
+});
+
+test("final test can be restarted in blank-only mode after a failed run", () => {
+  let session = createOptimizedFinalTestSession(createOptimizedPassage(buildPassage()));
+
+  session = submitOptimizedWord(session, "wrong");
+  session = restartOptimizedFinalTest(session);
+
+  const prompt = getOptimizedPrompt(session);
+  assert.equal(session.complete, false);
+  assert.equal(session.feedback.type, "final-test-retry");
+  assert.equal(prompt.type, "final-recall");
+  assert.equal(prompt.cueStyle, "blank");
+  assert.equal(prompt.promptPosition, 0);
 });

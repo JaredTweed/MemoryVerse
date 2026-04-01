@@ -7,6 +7,7 @@ import {
   createOptimizedSession,
   getOptimizedPrompt,
   getOptimizedStats,
+  restartOptimizedFinalTest,
   submitOptimizedWord,
 } from "./optimized-core.js";
 
@@ -23,10 +24,12 @@ const practiceHeading = document.querySelector(".practice-heading");
 const practiceActions = document.querySelector(".practice-actions");
 const passageTitle = document.querySelector("#passage-title");
 const statusMessage = document.querySelector("#status-message");
+const chunkListTitle = document.querySelector("#chunk-list-title");
 const practiceCard = document.querySelector("#practice-card");
 const chunkList = document.querySelector("#chunk-list");
 const progressValue = document.querySelector("#progress-value");
 const supportValue = document.querySelector("#support-value");
+const SUCCESSFUL_ATTEMPT_GRACE_MS = 1500;
 let headerLayoutFrame = 0;
 let workspaceScrollFrame = 0;
 
@@ -35,6 +38,8 @@ const state = {
   passage: null,
   session: null,
   notice: "",
+  leaderboardEntries: null,
+  finalRunAttempt: null,
 };
 
 applyTheme();
@@ -75,6 +80,14 @@ guessInput.addEventListener("input", (event) => {
   submitAnswer();
 });
 
+guessInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Backspace") {
+    return;
+  }
+
+  trackLateBackspace();
+});
+
 document.addEventListener("keydown", (event) => {
   if (
     event.defaultPrevented ||
@@ -104,6 +117,8 @@ restartButton.addEventListener("click", () => {
     return;
   }
 
+  state.leaderboardEntries = null;
+  state.finalRunAttempt = null;
   state.session = createOptimizedSession(createOptimizedPassage(state.passage));
   render();
 });
@@ -138,6 +153,8 @@ async function loadPassage({ startInFinalTest = false } = {}) {
     const parsedPassage = parsePassageHtml(payload.html, payload.requestedReference, payload.translation);
     state.passage = parsedPassage;
     const optimizedPassage = createOptimizedPassage(parsedPassage);
+    state.leaderboardEntries = null;
+    state.finalRunAttempt = null;
     state.session = startInFinalTest
       ? createOptimizedFinalTestSession(optimizedPassage)
       : createOptimizedSession(optimizedPassage);
@@ -147,9 +164,14 @@ async function loadPassage({ startInFinalTest = false } = {}) {
     state.passage = null;
     state.session = null;
     state.notice = error instanceof Error ? error.message : "Unable to load that passage.";
+    state.leaderboardEntries = null;
+    state.finalRunAttempt = null;
     render();
   } finally {
     state.loading = false;
+    if (isTrackedBlankFinalSession(state.session)) {
+      startFinalRunAttempt(state.session);
+    }
     render();
   }
 
@@ -192,7 +214,9 @@ function renderStatus() {
   const prompt = getOptimizedPrompt(state.session);
   if (!prompt) {
     statusMessage.textContent =
-      state.session.feedback.type === "completed" ? "Complete. Session finished." : "The passage is ready.";
+      state.session.feedback.type === "completed"
+        ? "Successful blank-only run. Leaderboard ready."
+        : "The passage is ready.";
     return;
   }
 
@@ -227,6 +251,14 @@ function renderPractice() {
   practiceCard.classList.remove("is-empty");
   const prompt = getOptimizedPrompt(state.session);
   if (!prompt) {
+    if (state.session.complete) {
+      renderPassageText(
+        practiceCard,
+        state.session.passage,
+        state.session.passage.hideableWordIndices.length,
+        "blank",
+      );
+    }
     return;
   }
 
@@ -338,6 +370,23 @@ function buildCue(wordText, cueStyle, isCurrent, isLeadWord) {
 
 function renderChunkList() {
   chunkList.innerHTML = "";
+  chunkListTitle.textContent = state.leaderboardEntries?.length ? "Section leaderboard" : "Chunk plan";
+
+  if (state.leaderboardEntries?.length) {
+    state.leaderboardEntries.forEach((entry, index) => {
+      const item = document.createElement("article");
+      item.className = "chunk-card";
+      item.innerHTML = `
+        <div class="chunk-card-header">
+          <strong>#${index + 1} ${escapeHtml(entry.label)}</strong>
+          <span class="chunk-badge">${formatDuration(entry.scoreMs)}</span>
+        </div>
+        <p>${escapeHtml(`Slowest word: ${entry.slowestWordLabel} ("${entry.slowestWordText}")`)}</p>
+      `;
+      chunkList.appendChild(item);
+    });
+    return;
+  }
 
   if (!state.session) {
     return;
@@ -484,13 +533,199 @@ function submitAnswer() {
     return;
   }
 
-  state.session = submitOptimizedWord(state.session, guessInput.value);
+  const previousSession = state.session;
+  const prompt = getOptimizedPrompt(previousSession);
+  const normalizedGuess = normalizeWord(guessInput.value);
+  const wasTrackedBlankFinal = isTrackedBlankFinalPrompt(previousSession, prompt);
+  const wasCorrect = Boolean(prompt?.word && normalizedGuess === prompt.word.normalized);
+
+  if (wasTrackedBlankFinal && wasCorrect) {
+    recordFinalRunWord(previousSession, prompt);
+  }
+
+  let nextSession = submitOptimizedWord(previousSession, guessInput.value);
+
+  if (wasTrackedBlankFinal && nextSession.feedback.type === "mistake") {
+    invalidateFinalRunAttempt();
+  }
+
+  nextSession = reconcileFinalRunState(previousSession, nextSession, wasTrackedBlankFinal, wasCorrect);
+  state.session = nextSession;
   guessInput.value = "";
   render();
 
   if (state.session && !state.session.complete && state.session.stage.type !== "study") {
     guessInput.focus({ preventScroll: true });
   }
+}
+
+function trackLateBackspace() {
+  if (!state.finalRunAttempt || !isTrackedBlankFinalSession(state.session)) {
+    return;
+  }
+
+  if (performance.now() - state.finalRunAttempt.promptStartedAt < SUCCESSFUL_ATTEMPT_GRACE_MS) {
+    return;
+  }
+
+  state.finalRunAttempt.promptUsedLateBackspace = true;
+  state.finalRunAttempt.invalid = true;
+}
+
+function startFinalRunAttempt(session) {
+  const prompt = getOptimizedPrompt(session);
+  if (!isTrackedBlankFinalPrompt(session, prompt)) {
+    state.finalRunAttempt = null;
+    return;
+  }
+
+  state.finalRunAttempt = {
+    promptStartedAt: performance.now(),
+    promptUsedLateBackspace: false,
+    wordResults: [],
+    invalid: false,
+  };
+}
+
+function prepareTrackedPrompt(session) {
+  const prompt = getOptimizedPrompt(session);
+  if (!isTrackedBlankFinalPrompt(session, prompt)) {
+    return;
+  }
+
+  if (!state.finalRunAttempt) {
+    startFinalRunAttempt(session);
+    return;
+  }
+
+  state.finalRunAttempt.promptStartedAt = performance.now();
+  state.finalRunAttempt.promptUsedLateBackspace = false;
+}
+
+function recordFinalRunWord(session, prompt) {
+  if (!state.finalRunAttempt) {
+    return;
+  }
+
+  const context = getStatusContext(session, prompt);
+  state.finalRunAttempt.wordResults.push({
+    label: context
+      ? `${context.chunkReference}, Word ${context.wordNumber}/${context.wordTotal}`
+      : `Word ${prompt.promptPosition + 1}/${prompt.totalPrompts}`,
+    wordText: prompt.word.text,
+    durationMs: performance.now() - state.finalRunAttempt.promptStartedAt,
+    globalWordNumber: prompt.promptPosition + 1,
+  });
+
+  if (state.finalRunAttempt.promptUsedLateBackspace) {
+    state.finalRunAttempt.invalid = true;
+  }
+}
+
+function invalidateFinalRunAttempt() {
+  if (!state.finalRunAttempt) {
+    return;
+  }
+
+  state.finalRunAttempt.invalid = true;
+}
+
+function reconcileFinalRunState(
+  previousSession,
+  nextSession,
+  wasTrackedBlankFinal,
+  wasCorrect,
+) {
+  const failedTrackedBlankRun = wasTrackedBlankFinal && nextSession.feedback.type === "mistake";
+  if (failedTrackedBlankRun) {
+    invalidateFinalRunAttempt();
+    const repeatedSession = restartOptimizedFinalTest(nextSession);
+    startFinalRunAttempt(repeatedSession);
+    return repeatedSession;
+  }
+
+  const completedTrackedBlankRun = wasTrackedBlankFinal && wasCorrect && nextSession.complete;
+
+  if (completedTrackedBlankRun) {
+    const wasSuccessfulRun = isSuccessfulFinalRun(previousSession);
+
+    if (wasSuccessfulRun) {
+      recordSuccessfulRun(state.finalRunAttempt.wordResults);
+    }
+
+    const repeatedSession = restartOptimizedFinalTest(
+      nextSession,
+      wasSuccessfulRun ? "final-test-success" : "final-test-retry",
+    );
+    startFinalRunAttempt(repeatedSession);
+    return repeatedSession;
+  }
+
+  if (nextSession.complete) {
+    const repeatedSession = restartOptimizedFinalTest(nextSession);
+    startFinalRunAttempt(repeatedSession);
+    return repeatedSession;
+  }
+
+  if (isTrackedBlankFinalSession(nextSession)) {
+    if (!isTrackedBlankFinalSession(previousSession)) {
+      startFinalRunAttempt(nextSession);
+    } else if (wasTrackedBlankFinal && wasCorrect) {
+      prepareTrackedPrompt(nextSession);
+    }
+  }
+
+  return nextSession;
+}
+
+function isSuccessfulFinalRun(session) {
+  return Boolean(
+    state.finalRunAttempt &&
+      !state.finalRunAttempt.invalid &&
+      state.finalRunAttempt.wordResults.length === session.passage.hideableWordIndices.length,
+  );
+}
+
+function recordSuccessfulRun(wordResults) {
+  const nextRunNumber = (state.leaderboardEntries?.length ?? 0) + 1;
+  const runEntry = buildRunLeaderboardEntry(wordResults, nextRunNumber);
+  const entries = [...(state.leaderboardEntries ?? []), runEntry];
+
+  state.leaderboardEntries = entries.sort(
+    (left, right) => left.scoreMs - right.scoreMs || left.runNumber - right.runNumber,
+  );
+  state.finalRunAttempt = null;
+}
+
+function buildRunLeaderboardEntry(wordResults, runNumber) {
+  const slowestWord = wordResults.reduce((slowest, current) =>
+    current.durationMs > slowest.durationMs ? current : slowest,
+  );
+
+  return {
+    label: `Run ${runNumber}`,
+    runNumber,
+    scoreMs: slowestWord.durationMs,
+    slowestWordLabel: slowestWord.label,
+    slowestWordText: slowestWord.wordText,
+  };
+}
+
+function formatDuration(durationMs) {
+  return `${(durationMs / 1000).toFixed(2)}s`;
+}
+
+function isTrackedBlankFinalSession(session) {
+  return Boolean(
+    session &&
+      !session.complete &&
+      session.stage.type === "final-recall" &&
+      session.stage.cueStyle === "blank",
+  );
+}
+
+function isTrackedBlankFinalPrompt(session, prompt) {
+  return Boolean(prompt && prompt.type === "final-recall" && isTrackedBlankFinalSession(session));
 }
 
 function getStatusPrefix(session, prompt) {

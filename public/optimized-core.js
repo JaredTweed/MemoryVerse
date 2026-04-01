@@ -36,8 +36,10 @@ export function createOptimizedSession(passage) {
 }
 
 export function createOptimizedFinalTestSession(passage) {
-  const session = createOptimizedSession(passage);
+  return restartOptimizedFinalTest(createOptimizedSession(passage), "final-test-start");
+}
 
+export function restartOptimizedFinalTest(session, feedbackType = "final-test-retry") {
   return {
     ...session,
     stage: {
@@ -46,7 +48,8 @@ export function createOptimizedFinalTestSession(passage) {
     },
     finalRound: 1,
     promptPosition: 0,
-    feedback: { type: "final-test-start" },
+    complete: false,
+    feedback: { type: feedbackType },
   };
 }
 

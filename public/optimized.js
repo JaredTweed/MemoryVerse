@@ -7,7 +7,6 @@ import {
   createOptimizedSession,
   getActivePlanIndex,
   getOptimizedPrompt,
-  getOptimizedStats,
   jumpToPlanStudy,
   restartOptimizedFinalTest,
   submitOptimizedWord,
@@ -33,8 +32,12 @@ const planNextButton = document.querySelector("#plan-next-button");
 const planPosition = document.querySelector("#plan-position");
 const practiceCard = document.querySelector("#practice-card");
 const chunkList = document.querySelector("#chunk-list");
-const progressValue = document.querySelector("#progress-value");
 const supportValue = document.querySelector("#support-value");
+const supportSteps = {
+  study: supportValue.querySelector('[data-support-step="study"]'),
+  "first-letter": supportValue.querySelector('[data-support-step="first-letter"]'),
+  blank: supportValue.querySelector('[data-support-step="blank"]'),
+};
 const LAST_REFERENCE_STORAGE_KEY = "memoryverse:last-reference";
 const PASSAGE_CACHE_STORAGE_KEY = "memoryverse:passage-cache";
 const PASSAGE_CACHE_LIMIT = 16;
@@ -526,30 +529,22 @@ function renderChunkList() {
 }
 
 function renderStats() {
+  Object.values(supportSteps).forEach((step) => {
+    step?.classList.remove("is-active");
+  });
+
   if (!state.session) {
-    progressValue.textContent = "--";
-    supportValue.textContent = "--";
     return;
   }
 
-  const stats = getOptimizedStats(state.session);
-  progressValue.textContent = `${stats.completedChunks} / ${stats.totalChunks}`;
+  const activeSupportStep =
+    state.session.stage.type === "study"
+      ? "study"
+      : state.session.stage.cueStyle === "first-letter"
+        ? "first-letter"
+        : "blank";
 
-  if (state.session.stage.type === "study") {
-    supportValue.textContent = "Study";
-    return;
-  }
-
-  if (state.session.stage.type === "final-recall") {
-    supportValue.textContent =
-      state.session.stage.cueStyle === "first-letter"
-        ? "Final letter cues"
-        : "Final blank only";
-    return;
-  }
-
-  supportValue.textContent =
-    state.session.stage.cueStyle === "first-letter" ? "First-letter cues" : "Blank only";
+  supportSteps[activeSupportStep]?.classList.add("is-active");
 }
 
 function renderControls() {

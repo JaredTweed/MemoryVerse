@@ -248,7 +248,7 @@ h2 {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.75rem;
 }
 
@@ -259,10 +259,34 @@ h2 {
   background: color-mix(in srgb, var(--panel-strong) 92%, transparent 8%);
 }
 
-.stat-card strong {
-  display: block;
+.support-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
   font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-  font-size: 1.4rem;
+  font-size: 1.2rem;
+  line-height: 1.5;
+}
+
+.support-sequence [data-support-step] {
+  color: var(--muted);
+  opacity: 0.62;
+  transition:
+    color 180ms ease,
+    opacity 180ms ease,
+    text-shadow 180ms ease;
+}
+
+.support-sequence [data-support-step].is-active {
+  color: var(--ink);
+  opacity: 1;
+  text-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 18%, transparent 82%);
+}
+
+.support-sequence-arrow {
+  color: var(--muted);
+  opacity: 0.72;
 }
 
 .practice-panel {

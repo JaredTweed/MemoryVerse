@@ -43,12 +43,14 @@
 
           <div class="stats-grid">
             <article class="stat-card">
-              <span class="stat-label">Chunks mastered</span>
-              <strong id="progress-value">--</strong>
-            </article>
-            <article class="stat-card">
               <span class="stat-label">Support level</span>
-              <strong id="support-value">--</strong>
+              <div id="support-value" class="support-sequence" aria-live="polite">
+                <span data-support-step="study">Study</span>
+                <span class="support-sequence-arrow">→</span>
+                <span data-support-step="first-letter">First-Letter Cues</span>
+                <span class="support-sequence-arrow">→</span>
+                <span data-support-step="blank">Blank Only</span>
+              </div>
             </article>
           </div>
 

@@ -30,6 +30,8 @@ const chunkList = document.querySelector("#chunk-list");
 const progressValue = document.querySelector("#progress-value");
 const supportValue = document.querySelector("#support-value");
 const LAST_REFERENCE_STORAGE_KEY = "memoryverse:last-reference";
+const PASSAGE_CACHE_STORAGE_KEY = "memoryverse:passage-cache";
+const PASSAGE_CACHE_LIMIT = 16;
 const SUCCESSFUL_ATTEMPT_GRACE_MS = 1500;
 let headerLayoutFrame = 0;
 let workspaceScrollFrame = 0;
@@ -37,6 +39,7 @@ let workspaceScrollFrame = 0;
 const state = {
   loading: false,
   passage: null,
+  activePassageKey: null,
   session: null,
   notice: "",
   leaderboardEntries: null,
@@ -130,18 +133,35 @@ restartButton.addEventListener("click", () => {
 
   state.leaderboardEntries = null;
   state.finalRunAttempt = null;
-  state.session = createOptimizedSession(createOptimizedPassage(state.passage));
+  state.session = createSessionForMode(state.passage, { startInFinalTest: false });
   render();
 });
 
 async function loadPassage({ startInFinalTest = false } = {}) {
-  const reference = referenceInput.value.trim();
+  const reference = normalizeReferenceInput(referenceInput.value);
   const translation = translationSelect.value;
 
   if (!reference) {
     state.notice = "Enter a Bible reference to begin.";
     render();
     referenceInput.focus();
+    return;
+  }
+
+  const passageKey = createPassageCacheKey(reference, translation);
+
+  if (hydrateCurrentPassage(passageKey, reference, { startInFinalTest })) {
+    return;
+  }
+
+  const cachedPassage = loadCachedPassage(passageKey);
+  if (cachedPassage) {
+    activatePassage(cachedPassage, passageKey, reference, { startInFinalTest });
+    render();
+
+    if (startInFinalTest && state.session) {
+      guessInput.focus({ preventScroll: true });
+    }
     return;
   }
 
@@ -154,6 +174,9 @@ async function loadPassage({ startInFinalTest = false } = {}) {
       `/api/passage?reference=${encodeURIComponent(reference)}&translation=${encodeURIComponent(
         translation,
       )}`,
+      {
+        cache: "force-cache",
+      },
     );
     const payload = await response.json();
 
@@ -162,18 +185,14 @@ async function loadPassage({ startInFinalTest = false } = {}) {
     }
 
     const parsedPassage = parsePassageHtml(payload.html, payload.requestedReference, payload.translation);
-    state.passage = parsedPassage;
-    const optimizedPassage = createOptimizedPassage(parsedPassage);
-    state.leaderboardEntries = null;
-    state.finalRunAttempt = null;
-    persistLastReferencePreference(reference);
-    state.session = startInFinalTest
-      ? createOptimizedFinalTestSession(optimizedPassage)
-      : createOptimizedSession(optimizedPassage);
-    state.notice = "";
+    const responseReference = normalizeReferenceInput(payload.requestedReference);
+    const responsePassageKey = createPassageCacheKey(responseReference, payload.translation);
+    persistCachedPassage(responsePassageKey, parsedPassage);
+    activatePassage(parsedPassage, responsePassageKey, responseReference, { startInFinalTest });
     render();
   } catch (error) {
     state.passage = null;
+    state.activePassageKey = null;
     state.session = null;
     state.notice = error instanceof Error ? error.message : "Unable to load that passage.";
     state.leaderboardEntries = null;
@@ -550,6 +569,95 @@ function persistLastReferencePreference(reference) {
     window.localStorage.setItem(LAST_REFERENCE_STORAGE_KEY, reference);
   } catch {
     // Ignore storage failures and keep using the in-memory value.
+  }
+}
+
+function normalizeReferenceInput(reference) {
+  return reference.trim().replace(/\s+/g, " ");
+}
+
+function createPassageCacheKey(reference, translation) {
+  return `${translation.toUpperCase()}:${reference.toLowerCase()}`;
+}
+
+function hydrateCurrentPassage(passageKey, reference, { startInFinalTest }) {
+  if (!state.passage || state.activePassageKey !== passageKey) {
+    return false;
+  }
+
+  activatePassage(state.passage, passageKey, reference, { startInFinalTest });
+  render();
+
+  if (startInFinalTest && state.session) {
+    guessInput.focus({ preventScroll: true });
+  }
+
+  return true;
+}
+
+function activatePassage(passage, passageKey, reference, { startInFinalTest }) {
+  state.passage = passage;
+  state.activePassageKey = passageKey;
+  state.leaderboardEntries = null;
+  state.finalRunAttempt = null;
+  state.session = createSessionForMode(passage, { startInFinalTest });
+  state.notice = "";
+  referenceInput.value = reference;
+  persistLastReferencePreference(reference);
+}
+
+function createSessionForMode(passage, { startInFinalTest }) {
+  const optimizedPassage = createOptimizedPassage(passage);
+  return startInFinalTest
+    ? createOptimizedFinalTestSession(optimizedPassage)
+    : createOptimizedSession(optimizedPassage);
+}
+
+function loadCachedPassage(passageKey) {
+  const cacheEntries = readCachedPassageEntries();
+  const entry = cacheEntries.find((item) => item.key === passageKey);
+  if (!entry?.passage) {
+    return null;
+  }
+
+  persistCachedPassageEntries([
+    { ...entry, updatedAt: Date.now() },
+    ...cacheEntries.filter((item) => item.key !== passageKey),
+  ]);
+
+  return entry.passage;
+}
+
+function persistCachedPassage(passageKey, passage) {
+  const cacheEntries = readCachedPassageEntries().filter((entry) => entry.key !== passageKey);
+  persistCachedPassageEntries([
+    {
+      key: passageKey,
+      passage,
+      updatedAt: Date.now(),
+    },
+    ...cacheEntries,
+  ]);
+}
+
+function readCachedPassageEntries() {
+  try {
+    const rawValue = window.localStorage.getItem(PASSAGE_CACHE_STORAGE_KEY);
+    const parsedEntries = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsedEntries) ? parsedEntries : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistCachedPassageEntries(entries) {
+  try {
+    window.localStorage.setItem(
+      PASSAGE_CACHE_STORAGE_KEY,
+      JSON.stringify(entries.slice(0, PASSAGE_CACHE_LIMIT)),
+    );
+  } catch {
+    // Ignore cache write failures and fall back to the network next time.
   }
 }
 

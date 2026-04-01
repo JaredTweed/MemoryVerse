@@ -12,7 +12,7 @@ import {
   submitOptimizedWord,
 } from "../public/optimized-core.js";
 
-function buildPassage() {
+function buildTwoChunkPassage() {
   return createPassage({
     heading: "Romans 5:1, NLT",
     referenceLabel: "Romans 5:1",
@@ -26,38 +26,98 @@ function buildPassage() {
   });
 }
 
-function clearCurrentStage(session) {
+function buildTenChunkPassage() {
+  return createPassage({
+    heading: "Sample 1:1, NLT",
+    referenceLabel: "Sample 1:1",
+    translation: "NLT",
+    verses: [
+      {
+        number: "1",
+        text:
+          "one alpha, two beta, three gamma, four delta, five epsilon, six zeta, seven eta, eight theta, nine iota, ten kappa.",
+      },
+    ],
+  });
+}
+
+function clearCurrentLine(session) {
   let current = session;
 
   if (current.stage.type === "study") {
     current = beginOptimizedStage(current);
   }
 
-  while (!current.complete) {
+  while (!current.complete && current.stage.type === "chunk-recall") {
     const prompt = getOptimizedPrompt(current);
-    if (!prompt || prompt.type === "study") {
-      return current;
-    }
-
     current = submitOptimizedWord(current, prompt.word.text);
-    if (current.promptPosition === 0 && current.feedback.type !== "correct-word") {
-      return current;
-    }
   }
 
   return current;
 }
 
-test("optimized passage splits longer text into chunked clauses", () => {
-  const optimized = createOptimizedPassage(buildPassage());
+function clearFinalRecall(session) {
+  let current = session;
+
+  while (!current.complete && current.stage.type === "final-recall") {
+    const prompt = getOptimizedPrompt(current);
+    current = submitOptimizedWord(current, prompt.word.text);
+  }
+
+  return current;
+}
+
+test("optimized passage keeps each chunk at two words or more when possible", () => {
+  const optimized = createOptimizedPassage(
+    createPassage({
+      heading: "Sample 1:1, NLT",
+      referenceLabel: "Sample 1:1",
+      translation: "NLT",
+      verses: [
+        {
+          number: "1",
+          text: "Grace builds, hope, steady courage.",
+        },
+      ],
+    }),
+  );
 
   assert.equal(optimized.chunks.length, 2);
-  assert.equal(optimized.chunks[0].text, "Grace makes peace,");
-  assert.equal(optimized.chunks[1].text, "and peace grows courage.");
+  assert.ok(optimized.chunks.every((chunk) => chunk.words.length >= 2));
 });
 
-test("optimized session starts in study mode and then moves into first-letter recall", () => {
-  let session = createOptimizedSession(createOptimizedPassage(buildPassage()));
+test("optimized passage builds the recursive chunk plan in the requested order", () => {
+  const optimized = createOptimizedPassage(buildTenChunkPassage());
+
+  assert.equal(optimized.chunks.length, 10);
+  assert.deepEqual(
+    optimized.plan.map((unit) => [unit.startChunkIndex + 1, unit.endChunkIndex + 1]),
+    [
+      [1, 1],
+      [2, 2],
+      [1, 2],
+      [3, 3],
+      [1, 3],
+      [4, 4],
+      [5, 5],
+      [4, 5],
+      [6, 6],
+      [4, 6],
+      [1, 6],
+      [7, 7],
+      [8, 8],
+      [7, 8],
+      [9, 9],
+      [7, 9],
+      [1, 9],
+      [10, 10],
+      [1, 10],
+    ],
+  );
+});
+
+test("each plan line moves from study to letter cues to blank only", () => {
+  let session = createOptimizedSession(createOptimizedPassage(buildTwoChunkPassage()));
   let prompt = getOptimizedPrompt(session);
 
   assert.equal(prompt.type, "study");
@@ -65,38 +125,41 @@ test("optimized session starts in study mode and then moves into first-letter re
 
   session = beginOptimizedStage(session);
   prompt = getOptimizedPrompt(session);
-
   assert.equal(prompt.type, "chunk-recall");
   assert.equal(prompt.cueStyle, "first-letter");
-  assert.equal(prompt.word.text, "Grace");
-});
 
-test("new chunks are introduced before previously cleared chunks return for spaced review", () => {
-  let session = createOptimizedSession(createOptimizedPassage(buildPassage()));
+  while (session.stage.type === "chunk-recall" && session.stage.cueStyle === "first-letter") {
+    prompt = getOptimizedPrompt(session);
+    session = submitOptimizedWord(session, prompt.word.text);
+  }
 
-  session = clearCurrentStage(session);
-  let prompt = getOptimizedPrompt(session);
+  prompt = getOptimizedPrompt(session);
+  assert.equal(prompt.type, "chunk-recall");
+  assert.equal(prompt.cueStyle, "blank");
 
-  assert.equal(session.feedback.type, "chunk-cleared");
+  while (session.stage.type === "chunk-recall") {
+    prompt = getOptimizedPrompt(session);
+    session = submitOptimizedWord(session, prompt.word.text);
+  }
+
+  prompt = getOptimizedPrompt(session);
   assert.equal(prompt.type, "study");
   assert.equal(prompt.chunk.label, "Verse 1.2");
-
-  session = clearCurrentStage(session);
-  prompt = getOptimizedPrompt(session);
-
-  assert.equal(prompt.type, "chunk-recall");
-  assert.equal(prompt.chunk.label, "Verse 1.1");
-  assert.equal(prompt.cueStyle, "blank");
+  assert.equal(session.chunks[0].mastery, 2);
+  assert.equal(session.chunks[0].complete, true);
 });
 
-test("a mistake resets the chunk and restores first-letter cues", () => {
-  let session = createOptimizedSession(createOptimizedPassage(buildPassage()));
+test("a mistake resets the current line and restores first-letter cues", () => {
+  let session = createOptimizedSession(createOptimizedPassage(buildTwoChunkPassage()));
 
-  session = clearCurrentStage(session);
-  session = clearCurrentStage(session);
+  session = beginOptimizedStage(session);
+
+  while (session.stage.type === "chunk-recall" && session.stage.cueStyle === "first-letter") {
+    const prompt = getOptimizedPrompt(session);
+    session = submitOptimizedWord(session, prompt.word.text);
+  }
 
   let prompt = getOptimizedPrompt(session);
-  assert.equal(prompt.type, "chunk-recall");
   assert.equal(prompt.cueStyle, "blank");
 
   session = submitOptimizedWord(session, "wrong");
@@ -108,29 +171,21 @@ test("a mistake resets the chunk and restores first-letter cues", () => {
   assert.equal(prompt.cueStyle, "first-letter");
 });
 
-test("after chunk mastery, the session moves into final consolidation and completes", () => {
-  let session = createOptimizedSession(createOptimizedPassage(buildPassage()));
+test("after the last planned line, the session moves into final blank-only recall", () => {
+  let session = createOptimizedSession(createOptimizedPassage(buildTwoChunkPassage()));
 
-  while (!session.complete && session.stage.type !== "final-recall") {
-    session = clearCurrentStage(session);
+  while (session.stage.type !== "final-recall") {
+    session = clearCurrentLine(session);
   }
 
-  let prompt = getOptimizedPrompt(session);
-  assert.equal(prompt.type, "final-recall");
-  assert.equal(prompt.cueStyle, "first-letter");
-
-  session = clearCurrentStage(session);
-  prompt = getOptimizedPrompt(session);
+  const prompt = getOptimizedPrompt(session);
   assert.equal(prompt.type, "final-recall");
   assert.equal(prompt.cueStyle, "blank");
-
-  session = clearCurrentStage(session);
-  assert.equal(session.complete, true);
-  assert.equal(session.feedback.type, "completed");
+  assert.equal(session.finalRound, 1);
 });
 
 test("skip-to-final session starts in blank-only final recall", () => {
-  const session = createOptimizedFinalTestSession(createOptimizedPassage(buildPassage()));
+  const session = createOptimizedFinalTestSession(createOptimizedPassage(buildTwoChunkPassage()));
   const prompt = getOptimizedPrompt(session);
 
   assert.equal(session.complete, false);
@@ -141,7 +196,7 @@ test("skip-to-final session starts in blank-only final recall", () => {
 });
 
 test("final test can be restarted in blank-only mode after a failed run", () => {
-  let session = createOptimizedFinalTestSession(createOptimizedPassage(buildPassage()));
+  let session = createOptimizedFinalTestSession(createOptimizedPassage(buildTwoChunkPassage()));
 
   session = submitOptimizedWord(session, "wrong");
   session = restartOptimizedFinalTest(session);
@@ -152,4 +207,17 @@ test("final test can be restarted in blank-only mode after a failed run", () => 
   assert.equal(prompt.type, "final-recall");
   assert.equal(prompt.cueStyle, "blank");
   assert.equal(prompt.promptPosition, 0);
+});
+
+test("final blank-only recall completes once every word is answered", () => {
+  let session = createOptimizedSession(createOptimizedPassage(buildTwoChunkPassage()));
+
+  while (session.stage.type !== "final-recall") {
+    session = clearCurrentLine(session);
+  }
+
+  session = clearFinalRecall(session);
+
+  assert.equal(session.complete, true);
+  assert.equal(session.feedback.type, "completed");
 });

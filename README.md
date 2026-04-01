@@ -14,15 +14,43 @@ Then open `http://127.0.0.1:3000`.
 
 The app currently uses a single study mode:
 
-- Break the passage into smaller clause-sized chunks.
-- Show one chunk in full, then switch into ordered retrieval of that chunk.
-- Start chunk recall with first-letter cues, then remove those cues on later successful recalls.
-- Require repeated successful recall for each chunk before considering it learned.
-- Revisit previously cleared chunks later in the same session instead of finishing them once and moving on forever.
-- Finish with whole-passage consolidation, first with cues and then with blank-only recall.
+- Break the passage into clause-sized chunks, but merge any one-word chunk into a neighbor so chunks stay at two words or more when possible.
+- For every line in the study plan, do exactly three steps:
+  `Study -> letter cues -> blank only`
+- Build the study plan recursively from left to right:
+  first learn small neighboring chunks, then merge those neighboring groups into a larger line, then keep repeating that process until the whole passage has been covered.
+- While a line is active, show one chunk of greyed-out context before it and one chunk after it when available.
+- Mark the start of each verse in the passage card with a superscript verse number.
+- After the last full-passage line is finished, repeat the final blank-only full-passage test until you complete a clean run.
 - Keep answers word-by-word and in order, with immediate feedback after each response.
 
-The exact chunk size, `3`-success chunk criterion, and within-session revisit schedule are implementation inferences from the research below rather than direct copies of one published protocol.
+If a passage has ten chunks, and `T` stands for chunk `10`, the recursive study plan is:
+
+```text
+1
+2
+12
+3
+123
+4
+5
+45
+6
+456
+123456
+7
+8
+78
+9
+789
+123456789
+T
+123456789T
+```
+
+That means the app first learns small adjacent pieces, then immediately rehearses the merged version of those same pieces, so long passages grow in manageable steps instead of waiting until the end for one giant merge.
+
+The exact chunk boundaries and this specific recursive merge pattern are implementation inferences from the research below rather than direct copies of one published protocol.
 
 ## Research Used
 

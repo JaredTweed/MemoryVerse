@@ -445,6 +445,29 @@ h2 {
   gap: 0.85rem;
 }
 
+.unit-chunk {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.unit-chunk.is-context .chunk-study-text {
+  color: var(--muted);
+  opacity: 0.72;
+}
+
+.unit-chunk.is-context .verse-number {
+  color: color-mix(in srgb, var(--muted) 82%, transparent 18%);
+}
+
+.unit-chunk-label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-ink);
+}
+
 .chunk-study-text {
   margin: 0;
   font-size: clamp(1.55rem, 2.3vw, 2rem);

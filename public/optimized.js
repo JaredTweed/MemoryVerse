@@ -297,26 +297,79 @@ function renderPractice() {
   }
 
   if (prompt.type === "study") {
-    const studyCard = document.createElement("div");
-    studyCard.className = "study-card";
-    studyCard.innerHTML = `
-      <p class="eyebrow">Study ${escapeHtml(prompt.chunk.label)}</p>
-      <p class="chunk-study-text">${escapeHtml(prompt.chunk.text)}</p>
-    `;
-    practiceCard.appendChild(studyCard);
+    renderStudyUnit(practiceCard, prompt.unit ?? prompt.chunk);
     return;
   }
 
   if (prompt.type === "chunk-recall") {
-    renderChunkText(practiceCard, prompt.chunk.segments, state.session.promptPosition, prompt.cueStyle);
+    renderRecallUnit(
+      practiceCard,
+      prompt.unit ?? prompt.chunk,
+      state.session.promptPosition,
+      prompt.cueStyle,
+    );
     return;
   }
 
   renderPassageText(practiceCard, state.session.passage, state.session.promptPosition, prompt.cueStyle);
 }
 
-function renderChunkText(container, segments, promptPosition, cueStyle) {
+function renderStudyUnit(container, unit) {
+  const displayChunks = getDisplayedUnitChunks(unit);
+  const studyCard = document.createElement("div");
+  studyCard.className = "study-card";
+  studyCard.innerHTML = `<p class="eyebrow">Study ${escapeHtml(unit.label)}</p>`;
+
+  displayChunks.forEach(({ chunk, isContext, showVerseNumber }) => {
+    const block = document.createElement("section");
+    block.className = "unit-chunk";
+    if (isContext) {
+      block.classList.add("is-context");
+    }
+
+    const text = document.createElement("p");
+    text.className = "chunk-study-text";
+    appendVerseMarker(text, showVerseNumber ? chunk.verseNumber : null);
+    renderVisibleChunkText(text, chunk.segments);
+    block.appendChild(text);
+    studyCard.appendChild(block);
+  });
+
+  container.appendChild(studyCard);
+}
+
+function renderRecallUnit(container, unit, promptPosition, cueStyle) {
+  const displayChunks = getDisplayedUnitChunks(unit);
+  const recallCard = document.createElement("div");
+  recallCard.className = "study-card";
   let wordCursor = 0;
+
+  displayChunks.forEach(({ chunk, isContext, showVerseNumber }) => {
+    const block = document.createElement("section");
+    block.className = "unit-chunk";
+    if (isContext) {
+      block.classList.add("is-context");
+    }
+
+    const text = document.createElement("p");
+    text.className = "chunk-study-text";
+    appendVerseMarker(text, showVerseNumber ? chunk.verseNumber : null);
+
+    if (isContext) {
+      renderVisibleChunkText(text, chunk.segments);
+    } else {
+      wordCursor = renderChunkText(text, chunk.segments, promptPosition, cueStyle, wordCursor);
+    }
+
+    block.appendChild(text);
+    recallCard.appendChild(block);
+  });
+
+  container.appendChild(recallCard);
+}
+
+function renderChunkText(container, segments, promptPosition, cueStyle, startingWordCursor = 0) {
+  let wordCursor = startingWordCursor;
 
   for (const segment of segments) {
     if (segment.type === "text") {
@@ -337,6 +390,8 @@ function renderChunkText(container, segments, promptPosition, cueStyle) {
     container.appendChild(cue);
     wordCursor += 1;
   }
+
+  return wordCursor;
 }
 
 function renderPassageText(container, passage, promptPosition, cueStyle) {
@@ -402,6 +457,31 @@ function buildCue(wordText, cueStyle, isCurrent, isLeadWord) {
   return cue;
 }
 
+function renderVisibleChunkText(container, segments) {
+  for (const segment of segments) {
+    if (segment.type === "text") {
+      container.appendChild(document.createTextNode(segment.text));
+      continue;
+    }
+
+    const word = document.createElement("span");
+    word.className = "word";
+    word.textContent = segment.text;
+    container.appendChild(word);
+  }
+}
+
+function appendVerseMarker(container, verseNumber) {
+  if (!verseNumber) {
+    return;
+  }
+
+  const marker = document.createElement("sup");
+  marker.className = "verse-number";
+  marker.textContent = verseNumber;
+  container.appendChild(marker);
+}
+
 function renderChunkList() {
   chunkList.innerHTML = "";
   chunkListTitle.textContent = state.leaderboardEntries?.length ? "Section leaderboard" : "Chunk plan";
@@ -426,14 +506,13 @@ function renderChunkList() {
     return;
   }
 
+  const activeRange = getActiveChunkRange(state.session);
+
   state.session.chunks.forEach((chunk, index) => {
     const item = document.createElement("article");
     item.className = "chunk-card";
 
-    if (
-      (state.session.stage.type === "study" || state.session.stage.type === "chunk-recall") &&
-      state.session.stage.chunkIndex === index
-    ) {
+    if (activeRange && index >= activeRange.start && index <= activeRange.end) {
       item.classList.add("is-active");
     }
 
@@ -444,7 +523,7 @@ function renderChunkList() {
     item.innerHTML = `
       <div class="chunk-card-header">
         <strong>${escapeHtml(chunk.label)}</strong>
-        <span class="chunk-badge">${chunk.mastery} / 3</span>
+        <span class="chunk-badge">${chunk.mastery} / 2</span>
       </div>
       <p>${escapeHtml(chunk.text)}</p>
     `;
@@ -910,7 +989,7 @@ function getStatusPrefix(session, prompt) {
     return "The passage is ready";
   }
 
-  let prefix = `${context.chunkReference}, Chunk ${context.chunkNumber}/${context.totalChunks}`;
+  let prefix = `${context.chunkReference}, ${context.chunkPositionLabel}`;
   if (context.wordNumber !== null && context.wordTotal !== null) {
     prefix += `, Word ${context.wordNumber}/${context.wordTotal}`;
   }
@@ -920,10 +999,9 @@ function getStatusPrefix(session, prompt) {
 
 function getStatusContext(session, prompt) {
   if (prompt.type === "study" || prompt.type === "chunk-recall") {
-    return createChunkStatusContext(
+    return createUnitStatusContext(
       session,
-      prompt.chunkIndex,
-      prompt.chunk,
+      prompt.unit ?? prompt.chunk,
       prompt.type === "study" ? null : prompt.promptPosition + 1,
       prompt.type === "study" ? null : prompt.totalPrompts,
     );
@@ -937,9 +1015,8 @@ function getStatusContext(session, prompt) {
   for (let chunkIndex = 0; chunkIndex < session.chunks.length; chunkIndex += 1) {
     const chunk = session.chunks[chunkIndex];
     if (wordOffset < chunk.words.length) {
-      return createChunkStatusContext(
+      return createUnitStatusContext(
         session,
-        chunkIndex,
         chunk,
         wordOffset + 1,
         chunk.words.length,
@@ -955,32 +1032,80 @@ function getStatusContext(session, prompt) {
     return null;
   }
 
-  return createChunkStatusContext(
+  return createUnitStatusContext(
     session,
-    finalChunkIndex,
     finalChunk,
     finalChunk.words.length,
     finalChunk.words.length,
   );
 }
 
-function createChunkStatusContext(session, chunkIndex, chunk, wordNumber, wordTotal) {
+function createUnitStatusContext(session, chunk, wordNumber, wordTotal) {
   return {
-    chunkReference: formatChunkReference(session.passage.referenceLabel, chunk),
-    chunkNumber: chunkIndex + 1,
-    totalChunks: session.chunks.length,
+    chunkReference: formatChunkReference(session.passage.referenceLabel, session.chunks, chunk),
+    chunkPositionLabel: formatChunkPosition(chunk, session.chunks.length),
     wordNumber,
     wordTotal,
   };
 }
 
-function formatChunkReference(referenceLabel, chunk) {
-  const chunkSuffix = chunk.label.replace(/^Verse\s+/u, "");
+function formatChunkReference(referenceLabel, chunks, chunk) {
   const chapterReference = referenceLabel.includes(":")
     ? referenceLabel.slice(0, referenceLabel.indexOf(":"))
     : referenceLabel;
+  const startSuffix = chunks[chunk.startChunkIndex].label.replace(/^Verse\s+/u, "");
+  const endSuffix = chunks[chunk.endChunkIndex].label.replace(/^Verse\s+/u, "");
 
-  return `${chapterReference}:${chunkSuffix}`;
+  return startSuffix === endSuffix
+    ? `${chapterReference}:${startSuffix}`
+    : `${chapterReference}:${startSuffix}-${endSuffix}`;
+}
+
+function formatChunkPosition(chunk, totalChunks) {
+  const startChunkNumber = chunk.startChunkIndex + 1;
+  const endChunkNumber = chunk.endChunkIndex + 1;
+
+  return startChunkNumber === endChunkNumber
+    ? `Chunk ${startChunkNumber}/${totalChunks}`
+    : `Chunks ${startChunkNumber}-${endChunkNumber}/${totalChunks}`;
+}
+
+function getActiveChunkRange(session) {
+  if (!session || (session.stage.type !== "study" && session.stage.type !== "chunk-recall")) {
+    return null;
+  }
+
+  const prompt = getOptimizedPrompt(session);
+  const unit = prompt?.unit ?? prompt?.chunk;
+  if (!unit) {
+    return null;
+  }
+
+  return {
+    start: unit.startChunkIndex,
+    end: unit.endChunkIndex,
+  };
+}
+
+function getDisplayedUnitChunks(unit) {
+  if (!state.session || !unit) {
+    return [];
+  }
+
+  const displayStart = Math.max(0, unit.startChunkIndex - 1);
+  const displayEnd = Math.min(state.session.chunks.length - 1, unit.endChunkIndex + 1);
+  const chunks = state.session.chunks.slice(displayStart, displayEnd + 1);
+
+  return chunks.map((chunk, index) => {
+    const absoluteChunkIndex = displayStart + index;
+    const previousChunk = index > 0 ? chunks[index - 1] : null;
+    return {
+      chunk,
+      isContext:
+        absoluteChunkIndex < unit.startChunkIndex || absoluteChunkIndex > unit.endChunkIndex,
+      showVerseNumber: !previousChunk || previousChunk.verseNumber !== chunk.verseNumber,
+    };
+  });
 }
 
 function escapeHtml(value) {

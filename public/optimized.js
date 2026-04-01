@@ -5,8 +5,10 @@ import {
   createOptimizedFinalTestSession,
   createOptimizedPassage,
   createOptimizedSession,
+  getActivePlanIndex,
   getOptimizedPrompt,
   getOptimizedStats,
+  jumpToPlanStudy,
   restartOptimizedFinalTest,
   submitOptimizedWord,
 } from "./optimized-core.js";
@@ -25,6 +27,10 @@ const practiceActions = document.querySelector(".practice-actions");
 const passageTitle = document.querySelector("#passage-title");
 const statusMessage = document.querySelector("#status-message");
 const chunkListTitle = document.querySelector("#chunk-list-title");
+const planNav = document.querySelector("#plan-nav");
+const planPrevButton = document.querySelector("#plan-prev-button");
+const planNextButton = document.querySelector("#plan-next-button");
+const planPosition = document.querySelector("#plan-position");
 const practiceCard = document.querySelector("#practice-card");
 const chunkList = document.querySelector("#chunk-list");
 const progressValue = document.querySelector("#progress-value");
@@ -135,6 +141,14 @@ restartButton.addEventListener("click", () => {
   state.finalRunAttempt = null;
   state.session = createSessionForMode(state.passage, { startInFinalTest: false });
   render();
+});
+
+planPrevButton.addEventListener("click", () => {
+  jumpPlan(-1);
+});
+
+planNextButton.addEventListener("click", () => {
+  jumpPlan(1);
 });
 
 async function loadPassage({ startInFinalTest = false } = {}) {
@@ -484,9 +498,11 @@ function appendVerseMarker(container, verseNumber) {
 
 function renderChunkList() {
   chunkList.innerHTML = "";
-  chunkListTitle.textContent = state.leaderboardEntries?.length ? "Section leaderboard" : "Chunk plan";
+  const hasLeaderboard = Boolean(state.leaderboardEntries?.length);
+  chunkListTitle.textContent = hasLeaderboard ? "Section leaderboard" : "Chunk plan";
+  renderPlanNavigation(hasLeaderboard);
 
-  if (state.leaderboardEntries?.length) {
+  if (hasLeaderboard) {
     state.leaderboardEntries.forEach((entry, index) => {
       const item = document.createElement("article");
       item.className = "chunk-card";
@@ -506,29 +522,7 @@ function renderChunkList() {
     return;
   }
 
-  const activeRange = getActiveChunkRange(state.session);
-
-  state.session.chunks.forEach((chunk, index) => {
-    const item = document.createElement("article");
-    item.className = "chunk-card";
-
-    if (activeRange && index >= activeRange.start && index <= activeRange.end) {
-      item.classList.add("is-active");
-    }
-
-    if (chunk.complete) {
-      item.classList.add("is-complete");
-    }
-
-    item.innerHTML = `
-      <div class="chunk-card-header">
-        <strong>${escapeHtml(chunk.label)}</strong>
-        <span class="chunk-badge">${chunk.mastery} / 2</span>
-      </div>
-      <p>${escapeHtml(chunk.text)}</p>
-    `;
-    chunkList.appendChild(item);
-  });
+  renderPlanOverview(chunkList, state.session);
 }
 
 function renderStats() {
@@ -596,7 +590,9 @@ function syncWorkspaceVisibility() {
       answerSubmitButton.focus({ preventScroll: true });
     }
 
-    const activeChunk = chunkList.querySelector(".is-active");
+    const activeChunk =
+      chunkList.querySelector(".passage-overview .word-gap.is-current") ||
+      chunkList.querySelector(".overview-chunk.is-active-unit, .chunk-card.is-active");
     if (!activeChunk) {
       return;
     }
@@ -748,6 +744,25 @@ function beginRecall() {
   state.session = beginOptimizedStage(state.session);
   render();
   guessInput.focus();
+}
+
+function jumpPlan(offset) {
+  if (!state.session || state.loading || !state.session.plan?.length) {
+    return;
+  }
+
+  const currentPlanIndex = getActivePlanIndex(state.session);
+  const nextPlanIndex = currentPlanIndex + offset;
+
+  if (nextPlanIndex < 0 || nextPlanIndex >= state.session.plan.length) {
+    return;
+  }
+
+  state.finalRunAttempt = null;
+  state.session = jumpToPlanStudy(state.session, nextPlanIndex);
+  guessInput.value = "";
+  render();
+  answerSubmitButton.focus({ preventScroll: true });
 }
 
 function submitAnswer() {
@@ -1070,21 +1085,103 @@ function formatChunkPosition(chunk, totalChunks) {
     : `Chunks ${startChunkNumber}-${endChunkNumber}/${totalChunks}`;
 }
 
-function getActiveChunkRange(session) {
-  if (!session || (session.stage.type !== "study" && session.stage.type !== "chunk-recall")) {
-    return null;
+function renderPlanNavigation(hasLeaderboard) {
+  const hasPlan = Boolean(state.session?.plan?.length);
+  const shouldShowNavigation = hasPlan && !hasLeaderboard;
+  planNav.hidden = !shouldShowNavigation;
+
+  if (!shouldShowNavigation) {
+    planPosition.textContent = "-- / --";
+    planPrevButton.disabled = true;
+    planNextButton.disabled = true;
+    return;
   }
 
+  const activePlanIndex = getActivePlanIndex(state.session);
+  planPosition.textContent = `${activePlanIndex + 1} / ${state.session.plan.length}`;
+  planPrevButton.disabled = state.loading || activePlanIndex <= 0;
+  planNextButton.disabled =
+    state.loading || activePlanIndex >= state.session.plan.length - 1;
+}
+
+function renderPlanOverview(container, session) {
   const prompt = getOptimizedPrompt(session);
-  const unit = prompt?.unit ?? prompt?.chunk;
-  if (!unit) {
-    return null;
+  if (!prompt) {
+    return;
   }
 
-  return {
-    start: unit.startChunkIndex,
-    end: unit.endChunkIndex,
-  };
+  const overview = document.createElement("div");
+  overview.className = "passage-overview";
+  const activeRange = getOverviewActiveRange(session, prompt);
+  const supportMode = getOverviewSupportMode(session, prompt);
+  let activeWordCursor = 0;
+  let lastVerseNumber = null;
+
+  session.chunks.forEach((chunk, index) => {
+    const chunkNode = document.createElement("span");
+    chunkNode.className = "overview-chunk";
+    const isActive =
+      activeRange && index >= activeRange.startChunkIndex && index <= activeRange.endChunkIndex;
+
+    if (isActive) {
+      chunkNode.classList.add("is-active-unit");
+    }
+
+    if (chunk.complete) {
+      chunkNode.classList.add("is-complete");
+    }
+
+    if (lastVerseNumber !== chunk.verseNumber) {
+      appendVerseMarker(chunkNode, chunk.verseNumber);
+      lastVerseNumber = chunk.verseNumber;
+    }
+
+    if (isActive && supportMode !== "study") {
+      activeWordCursor = renderChunkText(
+        chunkNode,
+        chunk.segments,
+        session.promptPosition,
+        supportMode,
+        activeWordCursor,
+      );
+    } else {
+      renderVisibleChunkText(chunkNode, chunk.segments);
+    }
+
+    overview.appendChild(chunkNode);
+    if (index < session.chunks.length - 1) {
+      overview.appendChild(document.createTextNode(" "));
+    }
+  });
+
+  container.appendChild(overview);
+}
+
+function getOverviewActiveRange(session, prompt) {
+  if (prompt.type === "study" || prompt.type === "chunk-recall") {
+    return prompt.unit ?? prompt.chunk;
+  }
+
+  if (prompt.type === "final-recall") {
+    return {
+      startChunkIndex: 0,
+      endChunkIndex: session.chunks.length - 1,
+    };
+  }
+
+  return null;
+}
+
+function getOverviewSupportMode(session, prompt) {
+  if (prompt.type === "study") {
+    return "study";
+  }
+
+  if (prompt.type === "chunk-recall" || prompt.type === "final-recall") {
+    return prompt.cueStyle;
+  }
+
+  return "study";
 }
 
 function getDisplayedUnitChunks(unit) {

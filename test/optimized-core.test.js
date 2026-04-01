@@ -7,7 +7,9 @@ import {
   createOptimizedFinalTestSession,
   createOptimizedPassage,
   createOptimizedSession,
+  getActivePlanIndex,
   getOptimizedPrompt,
+  jumpToPlanStudy,
   restartOptimizedFinalTest,
   submitOptimizedWord,
 } from "../public/optimized-core.js";
@@ -220,4 +222,16 @@ test("final blank-only recall completes once every word is answered", () => {
 
   assert.equal(session.complete, true);
   assert.equal(session.feedback.type, "completed");
+});
+
+test("jumping to a plan line always returns that line in study mode", () => {
+  let session = createOptimizedSession(createOptimizedPassage(buildTwoChunkPassage()));
+
+  session = beginOptimizedStage(session);
+  session = jumpToPlanStudy(session, 2);
+
+  const prompt = getOptimizedPrompt(session);
+  assert.equal(getActivePlanIndex(session), 2);
+  assert.equal(prompt.type, "study");
+  assert.equal(prompt.chunk.label, "Verse 1.1-1.2");
 });

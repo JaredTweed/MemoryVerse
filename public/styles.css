@@ -317,14 +317,11 @@ h2 {
 }
 
 .verse-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.8rem;
-  margin-right: 0.2rem;
-  transform: translateY(-0.08em);
+  display: inline;
+  margin-right: 0.16rem;
+  vertical-align: super;
   font-family: "Avenir Next", "Segoe UI Variable", "Trebuchet MS", sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.68em;
   font-weight: 700;
   color: var(--accent);
 }
@@ -392,9 +389,69 @@ h2 {
   gap: 0.75rem;
 }
 
+.chunk-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.plan-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.plan-nav[hidden] {
+  display: none;
+}
+
+.plan-nav-button {
+  min-width: 2.35rem;
+  min-height: 2.35rem;
+  padding: 0;
+}
+
+.plan-position {
+  min-width: 3.8rem;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .chunk-list {
   display: grid;
   gap: 0.65rem;
+}
+
+.passage-overview {
+  padding: 1rem 1.05rem;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-strong) 92%, transparent 8%);
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 2;
+}
+
+.overview-chunk {
+  display: inline;
+  border-radius: 0.7rem;
+  padding: 0.1rem 0.18rem;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.overview-chunk.is-active-unit {
+  background: color-mix(in srgb, var(--accent-soft) 85%, transparent 15%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent 82%);
+}
+
+.overview-chunk.is-complete:not(.is-active-unit) {
+  color: color-mix(in srgb, var(--ink) 88%, var(--success) 12%);
 }
 
 .chunk-card {
@@ -558,6 +615,11 @@ h2 {
 }
 
 @media (max-width: 640px) {
+  .chunk-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .page-shell {
     width: min(100% - 1rem, 100%);
     padding-top: 0.5rem;

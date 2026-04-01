@@ -53,7 +53,28 @@
           </div>
 
           <section class="chunk-list-section">
-            <p id="chunk-list-title" class="rule-title">Chunk plan</p>
+            <div class="chunk-list-header">
+              <p id="chunk-list-title" class="rule-title">Chunk plan</p>
+              <div id="plan-nav" class="plan-nav">
+                <button
+                  type="button"
+                  id="plan-prev-button"
+                  class="ghost-button plan-nav-button"
+                  aria-label="Previous study line"
+                >
+                  ←
+                </button>
+                <span id="plan-position" class="plan-position">-- / --</span>
+                <button
+                  type="button"
+                  id="plan-next-button"
+                  class="ghost-button plan-nav-button"
+                  aria-label="Next study line"
+                >
+                  →
+                </button>
+              </div>
+            </div>
             <div id="chunk-list" class="chunk-list"></div>
           </section>
         </aside>

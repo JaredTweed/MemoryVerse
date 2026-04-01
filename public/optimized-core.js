@@ -125,6 +125,37 @@ export function getOptimizedPrompt(session) {
   };
 }
 
+export function getActivePlanIndex(session) {
+  if (!session?.plan?.length) {
+    return -1;
+  }
+
+  if (session.stage.type === "study" || session.stage.type === "chunk-recall") {
+    return session.stage.planIndex;
+  }
+
+  return session.plan.length - 1;
+}
+
+export function jumpToPlanStudy(session, requestedPlanIndex) {
+  if (!session?.plan?.length) {
+    return session;
+  }
+
+  const planIndex = Math.min(Math.max(requestedPlanIndex, 0), session.plan.length - 1);
+
+  return {
+    ...session,
+    stage: {
+      type: "study",
+      planIndex,
+    },
+    promptPosition: 0,
+    complete: false,
+    feedback: { type: "ready-to-study" },
+  };
+}
+
 export function submitOptimizedWord(session, rawGuess) {
   if (session.complete || session.stage.type === "study") {
     return session;

@@ -58,6 +58,15 @@ answerForm.addEventListener("submit", (event) => {
   submitAnswer();
 });
 
+answerSubmitButton.addEventListener("click", (event) => {
+  if (!state.session || state.loading || state.session.stage.type === "study") {
+    return;
+  }
+
+  event.preventDefault();
+  revealCurrentWord();
+});
+
 guessInput.addEventListener("input", (event) => {
   if (
     event.isComposing ||
@@ -222,6 +231,9 @@ function renderStatus() {
 
   const statusPrefix = getStatusPrefix(state.session, prompt);
   switch (state.session.feedback.type) {
+    case "help-word":
+      statusMessage.textContent = `${statusPrefix}. The word was "${state.session.feedback.revealedWord}".`;
+      return;
     case "mistake":
       statusMessage.textContent = `${statusPrefix}. The correct word was "${state.session.feedback.revealedWord}".`;
       return;
@@ -557,6 +569,34 @@ function submitAnswer() {
   if (state.session && !state.session.complete && state.session.stage.type !== "study") {
     guessInput.focus({ preventScroll: true });
   }
+}
+
+function revealCurrentWord() {
+  if (!state.session || state.loading || state.session.stage.type === "study") {
+    return;
+  }
+
+  const prompt = getOptimizedPrompt(state.session);
+  if (!prompt?.word) {
+    return;
+  }
+
+  state.session = {
+    ...state.session,
+    promptPosition: 0,
+    feedback: {
+      type: "help-word",
+      revealedWord: prompt.word.text,
+    },
+  };
+  guessInput.value = "";
+
+  if (isTrackedBlankFinalSession(state.session)) {
+    startFinalRunAttempt(state.session);
+  }
+
+  render();
+  guessInput.focus({ preventScroll: true });
 }
 
 function trackLateBackspace() {

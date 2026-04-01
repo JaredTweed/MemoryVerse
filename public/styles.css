@@ -40,6 +40,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   min-height: 100%;
@@ -418,6 +422,10 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 0.9rem;
+}
+
+.chunk-list-header .rule-title {
+  margin-bottom: 0;
 }
 
 .plan-nav {

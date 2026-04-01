@@ -26,6 +26,7 @@ const practiceActions = document.querySelector(".practice-actions");
 const passageTitle = document.querySelector("#passage-title");
 const statusMessage = document.querySelector("#status-message");
 const chunkListTitle = document.querySelector("#chunk-list-title");
+const chunkListSection = document.querySelector(".chunk-list-section");
 const planNav = document.querySelector("#plan-nav");
 const planPrevButton = document.querySelector("#plan-prev-button");
 const planNextButton = document.querySelector("#plan-next-button");
@@ -500,10 +501,15 @@ function appendVerseMarker(container, verseNumber) {
 }
 
 function renderChunkList() {
+  chunkListSection.hidden = !state.passage;
   chunkList.innerHTML = "";
   const hasLeaderboard = Boolean(state.leaderboardEntries?.length);
   chunkListTitle.textContent = hasLeaderboard ? "Section leaderboard" : "Chunk plan";
   renderPlanNavigation(hasLeaderboard);
+
+  if (!state.passage) {
+    return;
+  }
 
   if (hasLeaderboard) {
     state.leaderboardEntries.forEach((entry, index) => {

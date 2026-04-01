@@ -29,6 +29,7 @@ const practiceCard = document.querySelector("#practice-card");
 const chunkList = document.querySelector("#chunk-list");
 const progressValue = document.querySelector("#progress-value");
 const supportValue = document.querySelector("#support-value");
+const LAST_REFERENCE_STORAGE_KEY = "memoryverse:last-reference";
 const SUCCESSFUL_ATTEMPT_GRACE_MS = 1500;
 let headerLayoutFrame = 0;
 let workspaceScrollFrame = 0;
@@ -42,6 +43,7 @@ const state = {
   finalRunAttempt: null,
 };
 
+applySavedReferencePreference();
 applyTheme();
 render();
 
@@ -164,6 +166,7 @@ async function loadPassage({ startInFinalTest = false } = {}) {
     const optimizedPassage = createOptimizedPassage(parsedPassage);
     state.leaderboardEntries = null;
     state.finalRunAttempt = null;
+    persistLastReferencePreference(reference);
     state.session = startInFinalTest
       ? createOptimizedFinalTestSession(optimizedPassage)
       : createOptimizedSession(optimizedPassage);
@@ -448,8 +451,8 @@ function renderStats() {
   if (state.session.stage.type === "final-recall") {
     supportValue.textContent =
       state.session.stage.cueStyle === "first-letter"
-        ? `Final ${state.session.finalRound + 1}: Letter cues`
-        : `Final ${state.session.finalRound + 1}: Blank only`;
+        ? "Final letter cues"
+        : "Final blank only";
     return;
   }
 
@@ -523,6 +526,31 @@ function syncPracticeHeaderLayout() {
 
 function applyTheme() {
   document.documentElement.dataset.theme = "dark";
+}
+
+function applySavedReferencePreference() {
+  const savedReference = loadLastReferencePreference();
+  if (!savedReference) {
+    return;
+  }
+
+  referenceInput.value = savedReference;
+}
+
+function loadLastReferencePreference() {
+  try {
+    return window.localStorage.getItem(LAST_REFERENCE_STORAGE_KEY)?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
+function persistLastReferencePreference(reference) {
+  try {
+    window.localStorage.setItem(LAST_REFERENCE_STORAGE_KEY, reference);
+  } catch {
+    // Ignore storage failures and keep using the in-memory value.
+  }
 }
 
 function beginRecall() {

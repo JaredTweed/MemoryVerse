@@ -40,6 +40,7 @@ const PASSAGE_CACHE_LIMIT = 16;
 const SUCCESSFUL_ATTEMPT_GRACE_MS = 1500;
 const NON_PERSISTENT_TRANSLATIONS = new Set(["ESV", "NIV"]);
 let workspaceScrollFrame = 0;
+let practiceView = null;
 
 const state = {
   loading: false,
@@ -279,142 +280,299 @@ function renderStatus() {
 }
 
 function renderPractice() {
-  practiceCard.innerHTML = "";
+  const descriptor = getPracticeDescriptor();
 
-  if (!state.session) {
-    practiceCard.classList.add("is-empty");
-    practiceCard.innerHTML = `
-      <div class="empty-state">
-        <p class="empty-kicker">MemoryVerse</p>
-        <p>Load a passage to begin.</p>
-      </div>
-    `;
-    return;
+  if (!practiceView || practiceView.key !== descriptor.key) {
+    practiceView = createPracticeView(descriptor);
+    practiceCard.replaceChildren(practiceView.root);
   }
 
-  practiceCard.classList.remove("is-empty");
+  practiceCard.classList.toggle("is-empty", descriptor.kind === "empty");
+  updatePracticeView(practiceView, descriptor);
+}
+
+function getPracticeDescriptor() {
+  if (!state.session) {
+    return {
+      kind: "empty",
+      key: "empty",
+    };
+  }
+
   const prompt = getOptimizedPrompt(state.session);
+  const passageKey = state.activePassageKey || "__active-passage__";
+
   if (!prompt) {
     if (state.session.complete) {
-      renderPassageText(
-        practiceCard,
-        state.session.passage,
-        state.session.passage.hideableWordIndices.length,
-        "blank",
-      );
+      return {
+        kind: "passage",
+        key: `${passageKey}:passage`,
+        passage: state.session.passage,
+        promptPosition: state.session.passage.hideableWordIndices.length,
+        cueStyle: "blank",
+      };
     }
-    return;
+
+    return {
+      kind: "empty",
+      key: "empty",
+    };
   }
 
   if (prompt.type === "study" || prompt.type === "chunk-recall") {
-    renderPlanOverview(practiceCard, state.session);
-    return;
+    return {
+      kind: "overview",
+      key: `${passageKey}:overview`,
+      session: state.session,
+      activeRange: getOverviewActiveRange(state.session, prompt),
+      supportMode: getOverviewSupportMode(state.session, prompt),
+      promptPosition: state.session.promptPosition,
+    };
   }
 
-  renderPassageText(practiceCard, state.session.passage, state.session.promptPosition, prompt.cueStyle);
+  return {
+    kind: "passage",
+    key: `${passageKey}:passage`,
+    passage: state.session.passage,
+    promptPosition: state.session.promptPosition,
+    cueStyle: prompt.cueStyle,
+  };
 }
 
-function renderChunkText(container, segments, promptPosition, cueStyle, startingWordCursor = 0) {
-  let wordCursor = startingWordCursor;
-
-  for (const segment of segments) {
-    if (segment.type === "text") {
-      container.appendChild(document.createTextNode(segment.text));
-      continue;
-    }
-
-    if (wordCursor < promptPosition) {
-      const cleared = document.createElement("span");
-      cleared.className = "word word-cleared";
-      cleared.textContent = segment.text;
-      container.appendChild(cleared);
-      wordCursor += 1;
-      continue;
-    }
-
-    const cue = buildCue(segment.text, cueStyle, wordCursor === promptPosition, wordCursor === 0);
-    container.appendChild(cue);
-    wordCursor += 1;
+function createPracticeView(descriptor) {
+  switch (descriptor.kind) {
+    case "overview":
+      return createOverviewPracticeView(descriptor);
+    case "passage":
+      return createPassagePracticeView(descriptor);
+    default:
+      return createEmptyPracticeView();
   }
-
-  return wordCursor;
 }
 
-function renderPassageText(container, passage, promptPosition, cueStyle) {
-  let wordCursor = 0;
-  const hideableSet = new Set(passage.hideableWordIndices);
+function createEmptyPracticeView() {
+  const root = document.createElement("div");
+  root.className = "empty-state";
 
-  for (let index = 0; index < passage.segments.length; index += 1) {
-    const segment = passage.segments[index];
+  const kicker = document.createElement("p");
+  kicker.className = "empty-kicker";
+  kicker.textContent = "MemoryVerse";
+
+  const message = document.createElement("p");
+  message.textContent = "Load a passage to begin.";
+
+  root.append(kicker, message);
+
+  return {
+    key: "empty",
+    kind: "empty",
+    root,
+  };
+}
+
+function createOverviewPracticeView(descriptor) {
+  const root = document.createElement("div");
+  root.className = "passage-overview";
+  const chunkViews = [];
+  let lastVerseNumber = null;
+
+  descriptor.session.chunks.forEach((chunk, index) => {
+    const chunkNode = document.createElement("span");
+    chunkNode.className = "overview-chunk";
+    const wordViews = [];
+
+    if (lastVerseNumber !== chunk.verseNumber) {
+      appendVerseMarker(chunkNode, chunk.verseNumber);
+      lastVerseNumber = chunk.verseNumber;
+    }
+
+    for (const segment of chunk.segments) {
+      if (segment.type === "text") {
+        chunkNode.appendChild(document.createTextNode(segment.text));
+        continue;
+      }
+
+      const wordNode = document.createElement("span");
+      wordViews.push({
+        node: wordNode,
+        text: segment.text,
+      });
+      chunkNode.appendChild(wordNode);
+    }
+
+    root.appendChild(chunkNode);
+    if (index < descriptor.session.chunks.length - 1) {
+      root.appendChild(document.createTextNode(" "));
+    }
+
+    chunkViews.push({
+      node: chunkNode,
+      wordViews,
+    });
+  });
+
+  return {
+    key: descriptor.key,
+    kind: "overview",
+    root,
+    chunkViews,
+  };
+}
+
+function createPassagePracticeView(descriptor) {
+  const root = document.createElement("div");
+  const wordViews = [];
+  const hideableSet = new Set(descriptor.passage.hideableWordIndices);
+
+  for (let index = 0; index < descriptor.passage.segments.length; index += 1) {
+    const segment = descriptor.passage.segments[index];
 
     if (segment.type === "verse-number") {
       const verseNumber = document.createElement("span");
       verseNumber.className = "verse-number";
       verseNumber.textContent = segment.text;
-      container.appendChild(verseNumber);
+      root.appendChild(verseNumber);
       continue;
     }
 
     if (segment.type === "text") {
-      container.appendChild(document.createTextNode(segment.text));
+      root.appendChild(document.createTextNode(segment.text));
       continue;
     }
 
     if (!hideableSet.has(index)) {
-      const word = document.createElement("span");
-      word.className = "word";
-      word.textContent = segment.text;
-      container.appendChild(word);
+      const wordNode = document.createElement("span");
+      wordNode.className = "word";
+      wordNode.textContent = segment.text;
+      root.appendChild(wordNode);
       continue;
     }
 
-    if (wordCursor < promptPosition) {
-      const cleared = document.createElement("span");
-      cleared.className = "word word-cleared";
-      cleared.textContent = segment.text;
-      container.appendChild(cleared);
-      wordCursor += 1;
-      continue;
-    }
+    const wordNode = document.createElement("span");
+    wordViews.push({
+      node: wordNode,
+      text: segment.text,
+      order: wordViews.length,
+    });
+    root.appendChild(wordNode);
+  }
 
-    const cue = buildCue(segment.text, cueStyle, wordCursor === promptPosition, wordCursor === 0);
-    container.appendChild(cue);
-    wordCursor += 1;
+  return {
+    key: descriptor.key,
+    kind: "passage",
+    root,
+    wordViews,
+  };
+}
+
+function updatePracticeView(view, descriptor) {
+  if (!view || view.kind !== descriptor.kind) {
+    return;
+  }
+
+  if (descriptor.kind === "overview") {
+    updateOverviewPracticeView(view, descriptor);
+    return;
+  }
+
+  if (descriptor.kind === "passage") {
+    updatePassagePracticeView(view, descriptor);
   }
 }
 
-function buildCue(wordText, cueStyle, isCurrent, isLeadWord) {
-  const cue = document.createElement("span");
-  cue.className = "word-gap";
-  cue.style.setProperty("--gap-width", String(Math.max(wordText.length, 3)));
+function updateOverviewPracticeView(view, descriptor) {
+  let activeWordCursor = 0;
 
+  view.chunkViews.forEach((chunkView, index) => {
+    const chunk = descriptor.session.chunks[index];
+    const isActive =
+      descriptor.activeRange &&
+      index >= descriptor.activeRange.startChunkIndex &&
+      index <= descriptor.activeRange.endChunkIndex;
+
+    chunkView.node.classList.toggle("is-active-unit", Boolean(isActive));
+    chunkView.node.classList.toggle("is-complete", Boolean(chunk.complete));
+
+    chunkView.wordViews.forEach((wordView) => {
+      if (isActive && descriptor.supportMode !== "study") {
+        if (activeWordCursor < descriptor.promptPosition) {
+          setWordNodeVisible(wordView.node, wordView.text, true);
+        } else {
+          setWordNodeCue(
+            wordView.node,
+            wordView.text,
+            descriptor.supportMode,
+            activeWordCursor === descriptor.promptPosition,
+            activeWordCursor === 0,
+          );
+        }
+        activeWordCursor += 1;
+        return;
+      }
+
+      setWordNodeVisible(wordView.node, wordView.text, false);
+    });
+  });
+}
+
+function updatePassagePracticeView(view, descriptor) {
+  view.wordViews.forEach((wordView) => {
+    if (wordView.order < descriptor.promptPosition) {
+      setWordNodeVisible(wordView.node, wordView.text, true);
+      return;
+    }
+
+    setWordNodeCue(
+      wordView.node,
+      wordView.text,
+      descriptor.cueStyle,
+      wordView.order === descriptor.promptPosition,
+      wordView.order === 0,
+    );
+  });
+}
+
+function setWordNodeVisible(node, wordText, isCleared) {
+  const nextState = isCleared ? "cleared" : "visible";
+  if (node.dataset.displayState === nextState) {
+    return;
+  }
+
+  node.dataset.displayState = nextState;
+  node.className = isCleared ? "word word-cleared" : "word";
+  node.textContent = wordText;
+  node.style.removeProperty("--gap-width");
+}
+
+function setWordNodeCue(node, wordText, cueStyle, isCurrent, isLeadWord) {
+  const cueText = getCueText(wordText, cueStyle, isLeadWord);
+  const nextState = `cue:${cueStyle}:${isCurrent ? "1" : "0"}:${cueText}`;
+  if (node.dataset.displayState === nextState) {
+    return;
+  }
+
+  node.dataset.displayState = nextState;
+  node.className = "word-gap";
   if (isCurrent) {
-    cue.classList.add("is-current");
+    node.classList.add("is-current");
   }
-
-  if (cueStyle === "first-letter") {
-    cue.classList.add("has-cue");
-    cue.textContent = `${wordText[0]}${".".repeat(Math.max(wordText.length - 1, 1))}`;
-  } else if (cueStyle === "blank" && isLeadWord) {
-    cue.classList.add("has-cue");
-    cue.textContent = wordText[0];
+  if (cueText) {
+    node.classList.add("has-cue");
   }
-
-  return cue;
+  node.textContent = cueText;
+  node.style.setProperty("--gap-width", String(Math.max(wordText.length, 3)));
 }
 
-function renderVisibleChunkText(container, segments) {
-  for (const segment of segments) {
-    if (segment.type === "text") {
-      container.appendChild(document.createTextNode(segment.text));
-      continue;
-    }
-
-    const word = document.createElement("span");
-    word.className = "word";
-    word.textContent = segment.text;
-    container.appendChild(word);
+function getCueText(wordText, cueStyle, isLeadWord) {
+  if (cueStyle === "first-letter") {
+    return `${wordText[0]}${".".repeat(Math.max(wordText.length - 1, 1))}`;
   }
+
+  if (cueStyle === "blank" && isLeadWord) {
+    return wordText[0];
+  }
+
+  return "";
 }
 
 function appendVerseMarker(container, verseNumber) {
@@ -475,30 +633,38 @@ function syncWorkspaceVisibility() {
   workspaceScrollFrame = requestAnimationFrame(() => {
     const currentPrompt = practiceCard.querySelector(".is-current");
     if (currentPrompt) {
-      currentPrompt.scrollIntoView({
-        block: "center",
-        inline: "nearest",
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
-      });
+      scrollNodeIntoViewIfNeeded(practiceCard, currentPrompt, "center");
     } else {
       const activeUnit = practiceCard.querySelector(".overview-chunk.is-active-unit");
       if (activeUnit) {
-        activeUnit.scrollIntoView({
-          block: "center",
-          inline: "nearest",
-          behavior: prefersReducedMotion() ? "auto" : "smooth",
-        });
+        scrollNodeIntoViewIfNeeded(practiceCard, activeUnit, "center");
       } else if (state.session?.stage.type === "study") {
-        practiceCard.scrollTo({
-          top: 0,
-          behavior: prefersReducedMotion() ? "auto" : "smooth",
-        });
+        practiceCard.scrollTo({ top: 0 });
       }
 
       if (state.session?.stage.type === "study") {
         answerSubmitButton.focus({ preventScroll: true });
       }
     }
+  });
+}
+
+function scrollNodeIntoViewIfNeeded(container, target, block) {
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const visibilityMargin = Math.min(40, containerRect.height * 0.18);
+  const isFullyVisible =
+    targetRect.top >= containerRect.top + visibilityMargin &&
+    targetRect.bottom <= containerRect.bottom - visibilityMargin;
+
+  if (isFullyVisible) {
+    return;
+  }
+
+  target.scrollIntoView({
+    block,
+    inline: "nearest",
+    behavior: "auto",
   });
 }
 
@@ -1017,59 +1183,6 @@ function renderPlanNavigation(hasLeaderboard) {
     state.loading || activePlanIndex >= state.session.plan.length - 1;
 }
 
-function renderPlanOverview(container, session) {
-  const prompt = getOptimizedPrompt(session);
-  if (!prompt) {
-    return;
-  }
-
-  const overview = document.createElement("div");
-  overview.className = "passage-overview";
-  const activeRange = getOverviewActiveRange(session, prompt);
-  const supportMode = getOverviewSupportMode(session, prompt);
-  let activeWordCursor = 0;
-  let lastVerseNumber = null;
-
-  session.chunks.forEach((chunk, index) => {
-    const chunkNode = document.createElement("span");
-    chunkNode.className = "overview-chunk";
-    const isActive =
-      activeRange && index >= activeRange.startChunkIndex && index <= activeRange.endChunkIndex;
-
-    if (isActive) {
-      chunkNode.classList.add("is-active-unit");
-    }
-
-    if (chunk.complete) {
-      chunkNode.classList.add("is-complete");
-    }
-
-    if (lastVerseNumber !== chunk.verseNumber) {
-      appendVerseMarker(chunkNode, chunk.verseNumber);
-      lastVerseNumber = chunk.verseNumber;
-    }
-
-    if (isActive && supportMode !== "study") {
-      activeWordCursor = renderChunkText(
-        chunkNode,
-        chunk.segments,
-        session.promptPosition,
-        supportMode,
-        activeWordCursor,
-      );
-    } else {
-      renderVisibleChunkText(chunkNode, chunk.segments);
-    }
-
-    overview.appendChild(chunkNode);
-    if (index < session.chunks.length - 1) {
-      overview.appendChild(document.createTextNode(" "));
-    }
-  });
-
-  container.appendChild(overview);
-}
-
 function getOverviewActiveRange(session, prompt) {
   if (prompt.type === "study" || prompt.type === "chunk-recall") {
     return prompt.unit ?? prompt.chunk;
@@ -1095,15 +1208,4 @@ function getOverviewSupportMode(session, prompt) {
   }
 
   return "study";
-}
-
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

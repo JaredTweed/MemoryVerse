@@ -18,6 +18,7 @@ const hiddenCountValue = document.querySelector("#hidden-count");
 const promptValue = document.querySelector("#prompt-count");
 const totalWordsValue = document.querySelector("#total-words");
 const themeButtons = document.querySelectorAll("[data-theme-value]");
+const NON_PERSISTENT_TRANSLATIONS = new Set(["ESV", "NIV"]);
 let promptScrollFrame = 0;
 
 const state = {
@@ -87,11 +88,14 @@ async function loadPassage() {
       `/api/passage?reference=${encodeURIComponent(reference)}&translation=${encodeURIComponent(
         translation,
       )}`,
+      {
+        cache: isPersistentPassageCacheAllowed(translation) ? "force-cache" : "no-store",
+      },
     );
     const payload = await response.json();
 
     if (!response.ok) {
-      throw new Error(payload.error || "Unable to load that passage.");
+      throw new Error(payload.details || payload.error || "Unable to load that passage.");
     }
 
     const parsedPassage = parsePassageHtml(payload.html, payload.requestedReference, payload.translation);
@@ -311,4 +315,8 @@ function applyTheme(theme) {
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function isPersistentPassageCacheAllowed(translation) {
+  return !NON_PERSISTENT_TRANSLATIONS.has((translation || "").trim().toUpperCase());
 }

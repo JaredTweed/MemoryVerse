@@ -43,6 +43,7 @@ const LAST_REFERENCE_STORAGE_KEY = "memoryverse:last-reference";
 const PASSAGE_CACHE_STORAGE_KEY = "memoryverse:passage-cache";
 const PASSAGE_CACHE_LIMIT = 16;
 const SUCCESSFUL_ATTEMPT_GRACE_MS = 1500;
+const NON_PERSISTENT_TRANSLATIONS = new Set(["ESV", "NIV"]);
 let headerLayoutFrame = 0;
 let workspaceScrollFrame = 0;
 
@@ -167,12 +168,13 @@ async function loadPassage({ startInFinalTest = false } = {}) {
   }
 
   const passageKey = createPassageCacheKey(reference, translation);
+  const shouldPersistLocally = isPersistentPassageCacheAllowed(translation);
 
   if (hydrateCurrentPassage(passageKey, reference, { startInFinalTest })) {
     return;
   }
 
-  const cachedPassage = loadCachedPassage(passageKey);
+  const cachedPassage = shouldPersistLocally ? loadCachedPassage(passageKey) : null;
   if (cachedPassage) {
     activatePassage(cachedPassage, passageKey, reference, { startInFinalTest });
     render();
@@ -193,19 +195,21 @@ async function loadPassage({ startInFinalTest = false } = {}) {
         translation,
       )}`,
       {
-        cache: "force-cache",
+        cache: shouldPersistLocally ? "force-cache" : "no-store",
       },
     );
     const payload = await response.json();
 
     if (!response.ok) {
-      throw new Error(payload.error || "Unable to load that passage.");
+      throw new Error(payload.details || payload.error || "Unable to load that passage.");
     }
 
     const parsedPassage = parsePassageHtml(payload.html, payload.requestedReference, payload.translation);
     const responseReference = normalizeReferenceInput(payload.requestedReference);
     const responsePassageKey = createPassageCacheKey(responseReference, payload.translation);
-    persistCachedPassage(responsePassageKey, parsedPassage);
+    if (shouldPersistLocally) {
+      persistCachedPassage(responsePassageKey, parsedPassage);
+    }
     activatePassage(parsedPassage, responsePassageKey, responseReference, { startInFinalTest });
     render();
   } catch (error) {
@@ -656,6 +660,10 @@ function createPassageCacheKey(reference, translation) {
   return `${translation.toUpperCase()}:${reference.toLowerCase()}`;
 }
 
+function isPersistentPassageCacheAllowed(translation) {
+  return !NON_PERSISTENT_TRANSLATIONS.has((translation || "").trim().toUpperCase());
+}
+
 function hydrateCurrentPassage(passageKey, reference, { startInFinalTest }) {
   if (!state.passage || state.activePassageKey !== passageKey) {
     return false;
@@ -720,7 +728,9 @@ function readCachedPassageEntries() {
   try {
     const rawValue = window.localStorage.getItem(PASSAGE_CACHE_STORAGE_KEY);
     const parsedEntries = rawValue ? JSON.parse(rawValue) : [];
-    return Array.isArray(parsedEntries) ? parsedEntries : [];
+    return Array.isArray(parsedEntries)
+      ? parsedEntries.filter((entry) => isPersistentPassageCacheEntry(entry))
+      : [];
   } catch {
     return [];
   }
@@ -735,6 +745,15 @@ function persistCachedPassageEntries(entries) {
   } catch {
     // Ignore cache write failures and fall back to the network next time.
   }
+}
+
+function isPersistentPassageCacheEntry(entry) {
+  if (typeof entry?.key !== "string") {
+    return false;
+  }
+
+  const [translation = ""] = entry.key.split(":", 1);
+  return isPersistentPassageCacheAllowed(translation);
 }
 
 function beginRecall() {

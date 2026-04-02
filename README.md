@@ -10,6 +10,24 @@ npm start
 
 Then open `http://127.0.0.1:3000`.
 
+## Translation Setup
+
+The app supports `NLT`, `ESV`, `NIV`, `KJV`, and `NLTUK`.
+
+- `NLT`, `KJV`, and `NLTUK` use the NLT API. If you do not set `NLT_API_KEY`, the app falls back to the provider's `TEST` key.
+- `ESV` requires `ESV_API_KEY`.
+- `NIV` requires `API_BIBLE_KEY`, and that key must have access to an NIV Bible in API.Bible.
+- `NIV_BIBLE_ID` is optional. Set it if you want to pin a specific NIV Bible instead of letting the server auto-detect one.
+
+Example:
+
+```bash
+NLT_API_KEY=your-nlt-key \
+ESV_API_KEY=your-esv-key \
+API_BIBLE_KEY=your-api-bible-key \
+npm start
+```
+
 ## Memorization Method
 
 The app currently uses a single study mode:

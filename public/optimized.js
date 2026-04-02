@@ -17,6 +17,9 @@ const translationSelect = document.querySelector("#translation-select");
 const passageForm = document.querySelector("#passage-form");
 const loadPassageButton = document.querySelector("#load-passage-button");
 const skipFinalButton = document.querySelector("#skip-final-button");
+const layout = document.querySelector(".layout");
+const controlsPanel = document.querySelector(".controls-panel");
+const practicePanel = document.querySelector(".practice-panel");
 const answerForm = document.querySelector("#answer-form");
 const answerField = document.querySelector("#answer-field");
 const answerSubmitButton = document.querySelector("#answer-submit-button");
@@ -39,6 +42,8 @@ const PASSAGE_CACHE_STORAGE_KEY = "memoryverse:passage-cache";
 const PASSAGE_CACHE_LIMIT = 16;
 const SUCCESSFUL_ATTEMPT_GRACE_MS = 1500;
 const NON_PERSISTENT_TRANSLATIONS = new Set(["ESV", "NIV"]);
+const MOBILE_PANEL_MEDIA_QUERY = "(max-width: 900px)";
+const PANEL_NAMES = new Set(["controls", "practice"]);
 let workspaceScrollFrame = 0;
 let practiceView = null;
 
@@ -50,11 +55,16 @@ const state = {
   notice: "",
   leaderboardEntries: null,
   finalRunAttempt: null,
+  mobileActivePanel: getInitialMobileActivePanel(),
 };
 
 applySavedReferencePreference();
 applyTheme();
+ensureHistoryPanelState();
 render();
+
+window.addEventListener("popstate", handlePopState);
+window.matchMedia(MOBILE_PANEL_MEDIA_QUERY).addEventListener("change", handleMobilePanelModeChange);
 
 passageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -161,12 +171,14 @@ async function loadPassage({ startInFinalTest = false } = {}) {
   const shouldPersistLocally = isPersistentPassageCacheAllowed(translation);
 
   if (hydrateCurrentPassage(passageKey, reference, { startInFinalTest })) {
+    setMobileActivePanel("practice", { history: "push" });
     return;
   }
 
   const cachedPassage = shouldPersistLocally ? loadCachedPassage(passageKey) : null;
   if (cachedPassage) {
     activatePassage(cachedPassage, passageKey, reference, { startInFinalTest });
+    setMobileActivePanel("practice", { history: "push" });
     render();
 
     if (startInFinalTest && state.session) {
@@ -201,6 +213,7 @@ async function loadPassage({ startInFinalTest = false } = {}) {
       persistCachedPassage(responsePassageKey, parsedPassage);
     }
     activatePassage(parsedPassage, responsePassageKey, responseReference, { startInFinalTest });
+    setMobileActivePanel("practice", { history: "push" });
     render();
   } catch (error) {
     state.passage = null;
@@ -224,6 +237,7 @@ async function loadPassage({ startInFinalTest = false } = {}) {
 }
 
 function render() {
+  renderMobilePanels();
   renderTitle();
   renderStatus();
   renderPractice();
@@ -670,6 +684,113 @@ function scrollNodeIntoViewIfNeeded(container, target, block) {
 
 function applyTheme() {
   document.documentElement.dataset.theme = "dark";
+}
+
+function getInitialMobileActivePanel() {
+  const panelFromHistory = normalizePanelName(window.history.state?.memoryVersePanel);
+  if (panelFromHistory && panelFromHistory !== "practice") {
+    return panelFromHistory;
+  }
+
+  return "controls";
+}
+
+function normalizePanelName(value) {
+  return PANEL_NAMES.has(value) ? value : null;
+}
+
+function stateHasSessionCapability(panelName) {
+  return panelName !== "practice" || Boolean(state?.session);
+}
+
+function isMobilePanelMode() {
+  return window.matchMedia(MOBILE_PANEL_MEDIA_QUERY).matches;
+}
+
+function ensureHistoryPanelState() {
+  const panel = normalizePanelName(window.history.state?.memoryVersePanel) || state.mobileActivePanel;
+  replaceHistoryPanelState(panel);
+}
+
+function replaceHistoryPanelState(panel) {
+  const nextState = {
+    ...(typeof window.history.state === "object" && window.history.state ? window.history.state : {}),
+    memoryVersePanel: panel,
+  };
+  window.history.replaceState(nextState, "");
+}
+
+function pushHistoryPanelState(panel) {
+  const nextState = {
+    ...(typeof window.history.state === "object" && window.history.state ? window.history.state : {}),
+    memoryVersePanel: panel,
+  };
+  window.history.pushState(nextState, "");
+}
+
+function setMobileActivePanel(panel, { history = "replace" } = {}) {
+  const normalizedPanel = normalizePanelName(panel) || "controls";
+  state.mobileActivePanel = normalizedPanel;
+
+  if (!isMobilePanelMode()) {
+    renderMobilePanels();
+    return;
+  }
+
+  if (history === "push") {
+    const currentPanel = normalizePanelName(window.history.state?.memoryVersePanel);
+    if (currentPanel !== normalizedPanel) {
+      pushHistoryPanelState(normalizedPanel);
+    }
+  } else if (history === "replace") {
+    replaceHistoryPanelState(normalizedPanel);
+  }
+
+  renderMobilePanels();
+}
+
+function renderMobilePanels() {
+  const activePanel = isMobilePanelMode() ? state.mobileActivePanel : "both";
+
+  if (activePanel === "both") {
+    layout.removeAttribute("data-mobile-active-panel");
+    setPanelInteractivity(controlsPanel, true);
+    setPanelInteractivity(practicePanel, true);
+    return;
+  }
+
+  layout.dataset.mobileActivePanel = activePanel;
+  setPanelInteractivity(controlsPanel, activePanel === "controls");
+  setPanelInteractivity(practicePanel, activePanel === "practice");
+}
+
+function setPanelInteractivity(panel, isActive) {
+  panel.inert = !isActive;
+  panel.setAttribute("aria-hidden", isActive ? "false" : "true");
+}
+
+function handlePopState() {
+  const requestedPanel = normalizePanelName(window.history.state?.memoryVersePanel);
+  state.mobileActivePanel = requestedPanel && stateHasSessionCapability(requestedPanel)
+    ? requestedPanel
+    : "controls";
+  renderMobilePanels();
+}
+
+function handleMobilePanelModeChange() {
+  if (!isMobilePanelMode()) {
+    renderMobilePanels();
+    return;
+  }
+
+  const requestedPanel =
+    normalizePanelName(state.mobileActivePanel) ||
+    normalizePanelName(window.history.state?.memoryVersePanel);
+  state.mobileActivePanel = requestedPanel && stateHasSessionCapability(requestedPanel)
+    ? requestedPanel
+    : "controls";
+  replaceHistoryPanelState(state.mobileActivePanel);
+  renderMobilePanels();
 }
 
 function applySavedReferencePreference() {

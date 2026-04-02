@@ -15,14 +15,12 @@ import {
 const referenceInput = document.querySelector("#reference-input");
 const translationSelect = document.querySelector("#translation-select");
 const passageForm = document.querySelector("#passage-form");
+const loadPassageButton = document.querySelector("#load-passage-button");
 const skipFinalButton = document.querySelector("#skip-final-button");
 const answerForm = document.querySelector("#answer-form");
 const answerField = document.querySelector("#answer-field");
 const answerSubmitButton = document.querySelector("#answer-submit-button");
 const guessInput = document.querySelector("#guess-input");
-const restartButton = document.querySelector("#restart-button");
-const practiceHeading = document.querySelector(".practice-heading");
-const practiceActions = document.querySelector(".practice-actions");
 const passageTitle = document.querySelector("#passage-title");
 const statusMessage = document.querySelector("#status-message");
 const chunkListTitle = document.querySelector("#chunk-list-title");
@@ -44,7 +42,6 @@ const PASSAGE_CACHE_STORAGE_KEY = "memoryverse:passage-cache";
 const PASSAGE_CACHE_LIMIT = 16;
 const SUCCESSFUL_ATTEMPT_GRACE_MS = 1500;
 const NON_PERSISTENT_TRANSLATIONS = new Set(["ESV", "NIV"]);
-let headerLayoutFrame = 0;
 let workspaceScrollFrame = 0;
 
 const state = {
@@ -61,12 +58,18 @@ applySavedReferencePreference();
 applyTheme();
 render();
 
-window.addEventListener("resize", syncPracticeHeaderLayout);
-
 passageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const startInFinalTest = event.submitter?.id === "skip-final-button";
   await loadPassage({ startInFinalTest });
+});
+
+referenceInput.addEventListener("input", () => {
+  renderControls();
+});
+
+translationSelect.addEventListener("change", () => {
+  renderControls();
 });
 
 answerForm.addEventListener("submit", (event) => {
@@ -135,17 +138,6 @@ document.addEventListener("keydown", (event) => {
 
   event.preventDefault();
   beginRecall();
-});
-
-restartButton.addEventListener("click", () => {
-  if (!state.passage) {
-    return;
-  }
-
-  state.leaderboardEntries = null;
-  state.finalRunAttempt = null;
-  state.session = createSessionForMode(state.passage, { startInFinalTest: false });
-  render();
 });
 
 planPrevButton.addEventListener("click", () => {
@@ -240,7 +232,6 @@ function render() {
   renderChunkList();
   renderStats();
   renderControls();
-  syncPracticeHeaderLayout();
   syncWorkspaceVisibility();
 }
 
@@ -561,6 +552,10 @@ function renderControls() {
   const isStudy = state.session?.stage.type === "study";
   const isDone = state.session?.complete;
 
+  loadPassageButton.textContent = isRestartingCurrentPassage()
+    ? "Restart Session"
+    : "Load Passage";
+  loadPassageButton.disabled = state.loading;
   answerField.toggleAttribute("hidden", Boolean(isStudy));
   answerField.setAttribute("aria-hidden", isStudy ? "true" : "false");
   answerForm.classList.toggle("is-study-action", Boolean(isStudy));
@@ -573,7 +568,6 @@ function renderControls() {
       ? "Session complete"
       : "Type the next word in order";
   skipFinalButton.disabled = state.loading;
-  restartButton.disabled = !state.passage || state.loading;
 }
 
 function syncWorkspaceVisibility() {
@@ -607,19 +601,6 @@ function syncWorkspaceVisibility() {
       inline: "nearest",
       behavior: prefersReducedMotion() ? "auto" : "smooth",
     });
-  });
-}
-
-function syncPracticeHeaderLayout() {
-  cancelAnimationFrame(headerLayoutFrame);
-
-  headerLayoutFrame = requestAnimationFrame(() => {
-    const isNarrowViewport = window.matchMedia("(max-width: 900px)").matches;
-    const headingBottom = practiceHeading.getBoundingClientRect().bottom;
-    const actionsTop = practiceActions.getBoundingClientRect().top;
-    const isStacked = isNarrowViewport && actionsTop > headingBottom;
-
-    practiceActions.classList.toggle("is-stacked", isStacked);
   });
 }
 
@@ -658,6 +639,20 @@ function normalizeReferenceInput(reference) {
 
 function createPassageCacheKey(reference, translation) {
   return `${translation.toUpperCase()}:${reference.toLowerCase()}`;
+}
+
+function isRestartingCurrentPassage() {
+  if (!state.passage || !state.activePassageKey) {
+    return false;
+  }
+
+  const reference = normalizeReferenceInput(referenceInput.value);
+  const translation = translationSelect.value;
+  if (!reference || !translation) {
+    return false;
+  }
+
+  return createPassageCacheKey(reference, translation) === state.activePassageKey;
 }
 
 function isPersistentPassageCacheAllowed(translation) {

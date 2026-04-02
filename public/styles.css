@@ -308,14 +308,19 @@ h2 {
 
 .practice-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .practice-heading {
   flex: 1 1 18rem;
   min-width: 0;
+}
+
+.practice-header .plan-nav {
+  margin-left: auto;
 }
 
 .passage-card {
@@ -410,27 +415,6 @@ h2 {
   margin: 0;
 }
 
-.chunk-list-section {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 0.75rem;
-  align-content: start;
-  min-height: 0;
-}
-
-.chunk-list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  min-height: 2rem;
-}
-
-.chunk-list-header .rule-title {
-  margin: 0;
-  line-height: 1.1;
-}
-
 .plan-nav {
   display: inline-flex;
   align-items: center;
@@ -458,12 +442,6 @@ h2 {
   color: var(--muted);
 }
 
-.chunk-list {
-  display: grid;
-  gap: 0.65rem;
-  min-height: 0;
-}
-
 .passage-overview {
   padding: 1rem 1.05rem;
   border-radius: 22px;
@@ -472,6 +450,16 @@ h2 {
   font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 1.08rem;
   line-height: 2;
+}
+
+.passage-card .passage-overview {
+  min-height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .overview-chunk {
@@ -536,40 +524,6 @@ h2 {
   font-weight: 700;
 }
 
-.study-card {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.unit-chunk {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.unit-chunk.is-context .chunk-study-text {
-  color: var(--muted);
-  opacity: 0.72;
-}
-
-.unit-chunk.is-context .verse-number {
-  color: color-mix(in srgb, var(--muted) 82%, transparent 18%);
-}
-
-.unit-chunk-label {
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted-ink);
-}
-
-.chunk-study-text {
-  margin: 0;
-  font-size: clamp(1.55rem, 2.3vw, 2rem);
-  line-height: 1.8;
-}
-
 @media (min-width: 901px) {
   .layout {
     align-items: stretch;
@@ -591,21 +545,11 @@ h2 {
     grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
 
-  .chunk-list-section {
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .chunk-list,
   .passage-card {
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
-  }
-
-  .chunk-list {
-    padding-right: 0.3rem;
   }
 
   .passage-card {
@@ -646,11 +590,6 @@ h2 {
 }
 
 @media (max-width: 640px) {
-  .chunk-list-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .page-shell {
     padding: 0.5rem;
   }

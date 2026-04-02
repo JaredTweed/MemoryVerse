@@ -23,14 +23,11 @@ const answerSubmitButton = document.querySelector("#answer-submit-button");
 const guessInput = document.querySelector("#guess-input");
 const passageTitle = document.querySelector("#passage-title");
 const statusMessage = document.querySelector("#status-message");
-const chunkListTitle = document.querySelector("#chunk-list-title");
-const chunkListSection = document.querySelector(".chunk-list-section");
 const planNav = document.querySelector("#plan-nav");
 const planPrevButton = document.querySelector("#plan-prev-button");
 const planNextButton = document.querySelector("#plan-next-button");
 const planPosition = document.querySelector("#plan-position");
 const practiceCard = document.querySelector("#practice-card");
-const chunkList = document.querySelector("#chunk-list");
 const supportValue = document.querySelector("#support-value");
 const supportSteps = {
   study: supportValue.querySelector('[data-support-step="study"]'),
@@ -229,7 +226,7 @@ function render() {
   renderTitle();
   renderStatus();
   renderPractice();
-  renderChunkList();
+  renderPlanNavigation(Boolean(state.leaderboardEntries?.length));
   renderStats();
   renderControls();
   syncWorkspaceVisibility();
@@ -309,76 +306,12 @@ function renderPractice() {
     return;
   }
 
-  if (prompt.type === "study") {
-    renderStudyUnit(practiceCard, prompt.unit ?? prompt.chunk);
-    return;
-  }
-
-  if (prompt.type === "chunk-recall") {
-    renderRecallUnit(
-      practiceCard,
-      prompt.unit ?? prompt.chunk,
-      state.session.promptPosition,
-      prompt.cueStyle,
-    );
+  if (prompt.type === "study" || prompt.type === "chunk-recall") {
+    renderPlanOverview(practiceCard, state.session);
     return;
   }
 
   renderPassageText(practiceCard, state.session.passage, state.session.promptPosition, prompt.cueStyle);
-}
-
-function renderStudyUnit(container, unit) {
-  const displayChunks = getDisplayedUnitChunks(unit);
-  const studyCard = document.createElement("div");
-  studyCard.className = "study-card";
-  studyCard.innerHTML = `<p class="eyebrow">Study ${escapeHtml(unit.label)}</p>`;
-
-  displayChunks.forEach(({ chunk, isContext, showVerseNumber }) => {
-    const block = document.createElement("section");
-    block.className = "unit-chunk";
-    if (isContext) {
-      block.classList.add("is-context");
-    }
-
-    const text = document.createElement("p");
-    text.className = "chunk-study-text";
-    appendVerseMarker(text, showVerseNumber ? chunk.verseNumber : null);
-    renderVisibleChunkText(text, chunk.segments);
-    block.appendChild(text);
-    studyCard.appendChild(block);
-  });
-
-  container.appendChild(studyCard);
-}
-
-function renderRecallUnit(container, unit, promptPosition, cueStyle) {
-  const displayChunks = getDisplayedUnitChunks(unit);
-  const recallCard = document.createElement("div");
-  recallCard.className = "study-card";
-  let wordCursor = 0;
-
-  displayChunks.forEach(({ chunk, isContext, showVerseNumber }) => {
-    const block = document.createElement("section");
-    block.className = "unit-chunk";
-    if (isContext) {
-      block.classList.add("is-context");
-    }
-
-    const text = document.createElement("p");
-    text.className = "chunk-study-text";
-    appendVerseMarker(text, showVerseNumber ? chunk.verseNumber : null);
-
-    if (isContext) {
-      renderVisibleChunkText(text, chunk.segments);
-    } else {
-      wordCursor = renderChunkText(text, chunk.segments, promptPosition, cueStyle, wordCursor);
-    }
-
-    block.appendChild(text);
-    recallCard.appendChild(block);
-  });
-
-  container.appendChild(recallCard);
 }
 
 function renderChunkText(container, segments, promptPosition, cueStyle, startingWordCursor = 0) {
@@ -495,40 +428,6 @@ function appendVerseMarker(container, verseNumber) {
   container.appendChild(marker);
 }
 
-function renderChunkList() {
-  chunkListSection.hidden = !state.passage;
-  chunkList.innerHTML = "";
-  const hasLeaderboard = Boolean(state.leaderboardEntries?.length);
-  chunkListTitle.textContent = hasLeaderboard ? "Section leaderboard" : "Chunk plan";
-  renderPlanNavigation(hasLeaderboard);
-
-  if (!state.passage) {
-    return;
-  }
-
-  if (hasLeaderboard) {
-    state.leaderboardEntries.forEach((entry, index) => {
-      const item = document.createElement("article");
-      item.className = "chunk-card";
-      item.innerHTML = `
-        <div class="chunk-card-header">
-          <strong>#${index + 1} ${escapeHtml(entry.label)}</strong>
-          <span class="chunk-badge">${formatDuration(entry.scoreMs)}</span>
-        </div>
-        <p>${escapeHtml(`Slowest word: ${entry.slowestWordLabel} ("${entry.slowestWordText}")`)}</p>
-      `;
-      chunkList.appendChild(item);
-    });
-    return;
-  }
-
-  if (!state.session) {
-    return;
-  }
-
-  renderPlanOverview(chunkList, state.session);
-}
-
 function renderStats() {
   Object.values(supportSteps).forEach((step) => {
     step?.classList.remove("is-active");
@@ -581,26 +480,25 @@ function syncWorkspaceVisibility() {
         inline: "nearest",
         behavior: prefersReducedMotion() ? "auto" : "smooth",
       });
-    } else if (state.session?.stage.type === "study") {
-      practiceCard.scrollTo({
-        top: 0,
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
-      });
-      answerSubmitButton.focus({ preventScroll: true });
-    }
+    } else {
+      const activeUnit = practiceCard.querySelector(".overview-chunk.is-active-unit");
+      if (activeUnit) {
+        activeUnit.scrollIntoView({
+          block: "center",
+          inline: "nearest",
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+        });
+      } else if (state.session?.stage.type === "study") {
+        practiceCard.scrollTo({
+          top: 0,
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+        });
+      }
 
-    const activeChunk =
-      chunkList.querySelector(".passage-overview .word-gap.is-current") ||
-      chunkList.querySelector(".overview-chunk.is-active-unit, .chunk-card.is-active");
-    if (!activeChunk) {
-      return;
+      if (state.session?.stage.type === "study") {
+        answerSubmitButton.focus({ preventScroll: true });
+      }
     }
-
-    activeChunk.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-    });
   });
 }
 
@@ -1197,27 +1095,6 @@ function getOverviewSupportMode(session, prompt) {
   }
 
   return "study";
-}
-
-function getDisplayedUnitChunks(unit) {
-  if (!state.session || !unit) {
-    return [];
-  }
-
-  const displayStart = Math.max(0, unit.startChunkIndex - 1);
-  const displayEnd = Math.min(state.session.chunks.length - 1, unit.endChunkIndex + 1);
-  const chunks = state.session.chunks.slice(displayStart, displayEnd + 1);
-
-  return chunks.map((chunk, index) => {
-    const absoluteChunkIndex = displayStart + index;
-    const previousChunk = index > 0 ? chunks[index - 1] : null;
-    return {
-      chunk,
-      isContext:
-        absoluteChunkIndex < unit.startChunkIndex || absoluteChunkIndex > unit.endChunkIndex,
-      showVerseNumber: !previousChunk || previousChunk.verseNumber !== chunk.verseNumber,
-    };
-  });
 }
 
 function escapeHtml(value) {

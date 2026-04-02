@@ -319,7 +319,7 @@ h2 {
 }
 
 .practice-heading {
-  flex: 1 1 18rem;
+  flex: 0 1 auto;
   min-width: 0;
 }
 

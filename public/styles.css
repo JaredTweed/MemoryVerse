@@ -603,6 +603,10 @@ h2 {
     overscroll-behavior: contain;
   }
 
+  .stats-grid {
+    display: none;
+  }
+
   .practice-panel {
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     overflow: hidden;

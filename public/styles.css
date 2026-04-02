@@ -319,8 +319,23 @@ h2 {
   min-width: 0;
 }
 
-.practice-header .plan-nav {
+.practice-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   margin-left: auto;
+}
+
+.mobile-only {
+  display: none;
+}
+
+.close-practice-button {
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
 }
 
 .passage-card {
@@ -601,6 +616,10 @@ h2 {
   .controls-panel {
     overflow: auto;
     overscroll-behavior: contain;
+  }
+
+  .mobile-only {
+    display: inline-flex;
   }
 
   .stats-grid {

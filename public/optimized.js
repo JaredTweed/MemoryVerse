@@ -17,12 +17,14 @@ const translationSelect = document.querySelector("#translation-select");
 const passageForm = document.querySelector("#passage-form");
 const loadPassageButton = document.querySelector("#load-passage-button");
 const skipFinalButton = document.querySelector("#skip-final-button");
+const continueButton = document.querySelector("#continue-button");
 const layout = document.querySelector(".layout");
 const controlsPanel = document.querySelector(".controls-panel");
 const practicePanel = document.querySelector(".practice-panel");
 const answerForm = document.querySelector("#answer-form");
 const answerField = document.querySelector("#answer-field");
 const answerSubmitButton = document.querySelector("#answer-submit-button");
+const closePracticeButton = document.querySelector("#close-practice-button");
 const guessInput = document.querySelector("#guess-input");
 const passageTitle = document.querySelector("#passage-title");
 const statusMessage = document.querySelector("#status-message");
@@ -70,6 +72,20 @@ passageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const startInFinalTest = event.submitter?.id === "skip-final-button";
   await loadPassage({ startInFinalTest });
+});
+
+continueButton.addEventListener("click", () => {
+  if (!state.session || state.loading) {
+    return;
+  }
+
+  setMobileActivePanel("practice", { history: "push" });
+  focusCurrentPracticeControl();
+});
+
+closePracticeButton.addEventListener("click", () => {
+  setMobileActivePanel("controls", { history: "replace" });
+  referenceInput.focus({ preventScroll: true });
 });
 
 referenceInput.addEventListener("input", () => {
@@ -627,6 +643,8 @@ function renderControls() {
     ? "Restart Session"
     : "Load Passage";
   loadPassageButton.disabled = state.loading;
+  continueButton.hidden = !state.session;
+  continueButton.disabled = !state.session || state.loading;
   answerField.toggleAttribute("hidden", Boolean(isStudy));
   answerField.setAttribute("aria-hidden", isStudy ? "true" : "false");
   answerForm.classList.toggle("is-study-action", Boolean(isStudy));
@@ -679,6 +697,23 @@ function scrollNodeIntoViewIfNeeded(container, target, block) {
     block,
     inline: "nearest",
     behavior: "auto",
+  });
+}
+
+function focusCurrentPracticeControl() {
+  requestAnimationFrame(() => {
+    if (!state.session || state.loading) {
+      return;
+    }
+
+    if (state.session.stage.type === "study") {
+      answerSubmitButton.focus({ preventScroll: true });
+      return;
+    }
+
+    if (!state.session.complete) {
+      guessInput.focus({ preventScroll: true });
+    }
   });
 }
 
